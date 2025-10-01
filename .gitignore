@@ -1,0 +1,65 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Packaging artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+*.whl
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Test and coverage outputs
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.cache/
+
+# IDE and editor settings
+.vscode/
+.idea/
+*.code-workspace
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment files
+.env
+.env.*
+
+# MLflow tracking data
+mlruns/
+
+# Local datasets and caches
+data/raw/
+data/processed/
+data/feedback.db
+artifacts/archives/
+artifacts/tmp/
+artifacts/cache/
+models/
+!models/.gitkeep
+
+# Training run artifacts
+**/checkpoints/
+**/runs/
+
+# OS metadata
+.DS_Store
+Thumbs.db
