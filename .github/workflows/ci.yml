@@ -68,7 +68,8 @@ jobs:
 
       - name: Run pip-audit
         run: |
-          pip-audit --format table
+          # Temporary waiver: GHSA-wf7f-8fxf-xfxc (mlflow) tracked in docs/SECURITY.md
+          pip-audit --format markdown --ignore-vuln GHSA-wf7f-8fxf-xfxc -r requirements.txt -r requirements-dev.txt
 
   test:
     needs:
