@@ -10,6 +10,8 @@ from app.db.session import SessionLocal, engine
 from app.db.models import Base, ReviewItem, Feedback
 from app.models.schemas import ReviewEnqueueIn, ReviewQueuedAck, ReviewLabelIn
 from app.core.security import require_api_key
+from app.services.active_learning import active_learning_stats
+from app.services.classifier import classify_text
 
 
 router = APIRouter()
@@ -42,6 +44,11 @@ def enqueue_review(
             confidence_score=item.confidence_score,
             confidence_margin=item.confidence_margin,
             model_version=item.model_version,
+            top_labels=(
+                [label.model_dump() for label in item.top_labels]
+                if item.top_labels
+                else None
+            ),
         )
         db.add(rec)
         db.commit()
@@ -66,12 +73,16 @@ def get_review_queue(
         q = q.where(ReviewItem.predicted_label == predicted_label)
     try:
         if date_from:
-            q = q.where(ReviewItem.created_at >= datetime.fromisoformat(date_from))
+            q = q.where(
+                ReviewItem.created_at >= datetime.fromisoformat(date_from)
+            )
     except ValueError:
         pass
     try:
         if date_to:
-            q = q.where(ReviewItem.created_at <= datetime.fromisoformat(date_to))
+            q = q.where(
+                ReviewItem.created_at <= datetime.fromisoformat(date_to)
+            )
     except ValueError:
         pass
 
@@ -82,7 +93,9 @@ def get_review_queue(
     if sort_order_normalized not in {"asc", "desc"}:
         sort_order_normalized = "asc"
     order_column = (
-        ReviewItem.created_at if sort_by_normalized == "created_at" else ReviewItem.id
+        ReviewItem.created_at
+        if sort_by_normalized == "created_at"
+        else ReviewItem.id
     )
     if sort_order_normalized == "desc":
         order_column = order_column.desc()
@@ -91,18 +104,43 @@ def get_review_queue(
 
     q = q.order_by(order_column).offset(offset).limit(limit)
     rows = db.execute(q).scalars().all()
-    return [
-        {
-            "id": r.id,
-            "text": r.text,
-            "predicted_label": r.predicted_label,
-            "confidence_score": r.confidence_score,
-            "confidence_margin": r.confidence_margin,
-            "model_version": r.model_version,
-            "created_at": r.created_at.isoformat() if r.created_at else None,
-        }
-        for r in rows
-    ]
+
+    updates: list[tuple[int, list[dict[str, float]]]] = []
+    payload: list[dict[str, object]] = []
+
+    for r in rows:
+        top_labels = r.top_labels or []
+        if not top_labels:
+            result = classify_text(r.text)
+            top_labels = result.get("categories") or []
+            if top_labels:
+                updates.append((r.id, top_labels))
+
+        payload.append(
+            {
+                "id": r.id,
+                "text": r.text,
+                "predicted_label": r.predicted_label,
+                "confidence_score": r.confidence_score,
+                "confidence_margin": r.confidence_margin,
+                "model_version": r.model_version,
+                "created_at": (
+                    r.created_at.isoformat() if r.created_at else None
+                ),
+                "top_labels": top_labels,
+            }
+        )
+
+    if updates:
+        for item_id, labels in updates:
+            db.execute(
+                update(ReviewItem)
+                .where(ReviewItem.id == item_id)
+                .values(top_labels=labels)
+            )
+        db.commit()
+
+    return payload
 
 
 @router.post("/review/label")
@@ -122,9 +160,13 @@ def label_review_item(
 
 @router.get("/review/stats")
 def review_stats(db: Session = Depends(get_db)):
-    total = db.execute(select(func.count()).select_from(ReviewItem)).scalar_one()
+    total = db.execute(
+        select(func.count()).select_from(ReviewItem)
+    ).scalar_one()
     unlabeled = db.execute(
-        select(func.count()).select_from(ReviewItem).where(ReviewItem.labeled == 0)
+        select(func.count())
+        .select_from(ReviewItem)
+        .where(ReviewItem.labeled == 0)
     ).scalar_one()
     labeled = total - unlabeled
     # breakdowns
@@ -149,6 +191,18 @@ def review_stats(db: Session = Depends(get_db)):
         "by_predicted_unlabeled": by_predicted,
         "by_true_labeled": by_true,
     }
+
+
+@router.get("/review/active-learning")
+def review_active_learning(
+    threshold: int = 20,
+    db: Session = Depends(get_db),
+):
+    stats = active_learning_stats(db, training_threshold=threshold)
+    latest = stats.get("latest_label_at")
+    if isinstance(latest, datetime):
+        stats["latest_label_at"] = latest.isoformat()
+    return stats
 
 
 @router.get("/export/dataset")
@@ -206,7 +260,9 @@ def export_dataset(
             Feedback.created_at,
         ).where(Feedback.true_label.is_not(None))
         if from_dt:
-            feedback_query = feedback_query.where(Feedback.created_at >= from_dt)
+            feedback_query = feedback_query.where(
+                Feedback.created_at >= from_dt
+            )
         if to_dt:
             feedback_query = feedback_query.where(Feedback.created_at <= to_dt)
         fb_rows = db.execute(feedback_query).all()

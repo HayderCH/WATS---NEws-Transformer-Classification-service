@@ -68,7 +68,9 @@ def test_seed_overwrite_replaces_existing_rows(tmp_path):
     try:
         with Session() as session:
             seed_initial_data(session, overwrite=False)
-            session.execute(sa.update(Feedback).values(predicted_label="placeholder"))
+            session.execute(
+                sa.update(Feedback).values(predicted_label="placeholder")
+            )
             session.commit()
 
             refreshed = seed_initial_data(session, overwrite=True)
@@ -76,7 +78,9 @@ def test_seed_overwrite_replaces_existing_rows(tmp_path):
             assert refreshed.inserted_review_items == len(SAMPLE_REVIEW_ITEMS)
 
             labels = (
-                session.execute(sa.select(Feedback.predicted_label)).scalars().all()
+                session.execute(sa.select(Feedback.predicted_label))
+                .scalars()
+                .all()
             )
             assert "placeholder" not in labels
     finally:

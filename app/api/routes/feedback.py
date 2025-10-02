@@ -45,7 +45,9 @@ def submit_feedback(
 
 @router.get("/feedback/stats", response_model=FeedbackStats)
 def feedback_stats(db: Session = Depends(get_db)):
-    rows = db.execute(select(Feedback.predicted_label, Feedback.true_label)).all()
+    rows = db.execute(
+        select(Feedback.predicted_label, Feedback.true_label)
+    ).all()
     pred = Counter()
     true = Counter()
     for p, t in rows:

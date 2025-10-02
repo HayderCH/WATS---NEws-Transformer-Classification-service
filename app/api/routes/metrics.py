@@ -74,7 +74,9 @@ def metrics(db: Session = Depends(get_db)) -> Dict[str, Any]:
     # Live counters from DB
     try:
         unlabeled_reviews = db.execute(
-            select(func.count()).select_from(ReviewItem).where(ReviewItem.labeled == 0)
+            select(func.count())
+            .select_from(ReviewItem)
+            .where(ReviewItem.labeled == 0)
         ).scalar_one()
         feedback_total = db.execute(
             select(func.count()).select_from(Feedback)

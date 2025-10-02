@@ -14,6 +14,10 @@ def test_review_queue_filters_and_pagination():
             "confidence_score": 0.2,
             "confidence_margin": 0.01,
             "model_version": "test",
+            "top_labels": [
+                {"name": "TECH", "prob": 0.5},
+                {"name": "SPORTS", "prob": 0.3},
+            ],
         }
         for i in range(4)
     ]
@@ -23,12 +27,16 @@ def test_review_queue_filters_and_pagination():
         assert r.json()["queued"] is True
 
     # Filter by predicted_label
-    r = client.get("/review/queue", params={"predicted_label": "TECH", "limit": 2})
+    r = client.get(
+        "/review/queue",
+        params={"predicted_label": "TECH", "limit": 2},
+    )
     assert r.status_code == 200
     items = r.json()
     assert len(items) <= 2
     assert all(it["predicted_label"] == "TECH" for it in items)
     assert all("created_at" in it for it in items)
+    assert all("top_labels" in it for it in items)
 
     # Pagination using offset
     r1 = client.get("/review/queue", params={"limit": 2, "offset": 0})
@@ -60,6 +68,51 @@ def test_review_enqueue_requires_api_key():
     }
     resp = unauth_client.post("/review/enqueue", json=payload)
     assert resp.status_code == 401
+
+
+def test_review_active_learning_stats_endpoint():
+    enqueue_payload = {
+        "text": "Long-form article awaiting verification by editors.",
+        "predicted_label": "POLITICS",
+        "confidence_score": 0.22,
+        "confidence_margin": 0.03,
+        "model_version": "v-test",
+        "top_labels": [
+            {"name": "POLITICS", "prob": 0.61},
+            {"name": "WORLD", "prob": 0.19},
+        ],
+    }
+    ack = client.post("/review/enqueue", json=enqueue_payload)
+    assert ack.status_code == 200
+    item_id = ack.json().get("id")
+    assert item_id
+
+    label_payload = {"item_id": item_id, "true_label": "Politics Insight"}
+    resp_label = client.post("/review/label", json=label_payload)
+    assert resp_label.status_code == 200
+
+    feedback_payload = {
+        "text": "Reader feedback confirming the politics classification.",
+        "predicted_label": "POLITICS",
+        "true_label": "Politics",
+        "model_version": "v-test",
+        "confidence_score": 0.8,
+        "confidence_margin": 0.1,
+    }
+    fb_resp = client.post("/feedback", json=feedback_payload)
+    assert fb_resp.status_code == 200
+
+    stats_resp = client.get("/review/active-learning", params={"threshold": 1})
+    assert stats_resp.status_code == 200
+    data = stats_resp.json()
+    assert data["review_labeled"] >= 1
+    assert data["feedback_labeled"] >= 1
+    assert data["total_examples"] >= 2
+    assert data["ready_for_training"] is True
+    assert any(
+        label.startswith("POLITICS") for label in data["distinct_labels"]
+    )
+    assert isinstance(data.get("latest_label_at"), str)
 
 
 def test_metrics_counters_present():

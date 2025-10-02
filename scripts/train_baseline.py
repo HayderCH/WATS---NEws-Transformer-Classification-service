@@ -16,9 +16,17 @@ import numpy as np
 from app.core.config import get_settings
 from app.services import mlflow_run
 
+HF_DATASET_AG_NEWS_REVISION = os.getenv(
+    "HF_DATASET_AG_NEWS_REVISION",
+    "refs/convert/parquet",
+)
+
 
 def load_ag_news(limit: int | None = None):
-    ds = load_dataset("ag_news")
+    ds = load_dataset(
+        "ag_news",
+        revision=HF_DATASET_AG_NEWS_REVISION,
+    )  # nosec B615
     texts = []
     labels = []
     for row in ds["train"]:
@@ -55,7 +63,9 @@ def train_baseline(output_dir: str, limit: int | None = None):
             n_jobs=-1 if hasattr(LogisticRegression, "n_jobs") else None,
         )
         clf.fit(X_train_vec, y_train)
-        train_iterations = int(np.max(clf.n_iter_)) if hasattr(clf, "n_iter_") else None
+        train_iterations = None
+        if hasattr(clf, "n_iter_"):
+            train_iterations = int(np.max(clf.n_iter_))
         preds = clf.predict(X_val_vec)
         macro_f1 = f1_score(y_val, preds, average="macro")
         accuracy = accuracy_score(y_val, preds)

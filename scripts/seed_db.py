@@ -34,7 +34,11 @@ def main() -> None:
         "Seed complete:",
         f"feedback={inserted['feedback']}",
         f"review_items={inserted['review_items']}",
-        ("(use --overwrite to refresh)" if not args.overwrite else "(overwritten)"),
+        (
+            "(use --overwrite to refresh)"
+            if not args.overwrite
+            else "(overwritten)"
+        ),
     )
 
 

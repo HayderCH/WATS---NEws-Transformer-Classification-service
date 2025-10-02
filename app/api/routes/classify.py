@@ -25,16 +25,20 @@ def classify(req: ClassificationRequest, db: Session = Depends(get_db)):
     result = classify_text(text)
     # Auto-enqueue if below thresholds
     try:
-        if (
-            result.get("confidence_score", 1.0) < _settings.review_conf_threshold
-            or result.get("confidence_margin", 1.0) < _settings.review_margin_threshold
-        ):
+        confidence_score = float(result.get("confidence_score", 1.0))
+        confidence_margin = float(result.get("confidence_margin", 1.0))
+        needs_review = (
+            confidence_score < _settings.review_conf_threshold
+            or confidence_margin < _settings.review_margin_threshold
+        )
+        if needs_review:
             rec = ReviewItem(
                 text=text,
                 predicted_label=result.get("top_category", ""),
-                confidence_score=float(result.get("confidence_score", 0.0)),
-                confidence_margin=float(result.get("confidence_margin", 0.0)),
+                confidence_score=confidence_score,
+                confidence_margin=confidence_margin,
                 model_version=result.get("model_version"),
+                top_labels=result.get("categories"),
             )
             db.add(rec)
             db.commit()

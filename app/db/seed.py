@@ -49,7 +49,8 @@ SAMPLE_FEEDBACK = [
 SAMPLE_REVIEW_ITEMS = [
     {
         "text": (
-            "Rookie quarterback rallies team to overtime upset win in " "season opener."
+            "Rookie quarterback rallies team to overtime upset win in "
+            "season opener."
         ),
         "predicted_label": "sports",
         "confidence_score": 0.64,

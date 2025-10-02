@@ -17,7 +17,9 @@ def load_huffpost_data(data_path: str, min_samples: int = 200):
     df = pd.read_json(data_path, lines=True)
 
     # Combine headline and short_description as text
-    df["text"] = df["headline"].fillna("") + ". " + df["short_description"].fillna("")
+    headline = df["headline"].fillna("")
+    short_desc = df["short_description"].fillna("")
+    df["text"] = headline + ". " + short_desc
 
     # Clean category names
     df["category"] = df["category"].str.upper().str.replace(" ", "_")
@@ -28,7 +30,10 @@ def load_huffpost_data(data_path: str, min_samples: int = 200):
     df_filtered = df[df["category"].isin(valid_categories)]
 
     print(f"Original categories: {len(category_counts)}")
-    print(f"Filtered categories (>={min_samples} samples): " f"{len(valid_categories)}")
+    print(
+        f"Filtered categories (>={min_samples} samples): "
+        f"{len(valid_categories)}"
+    )
     print(f"Total samples: {len(df_filtered)}")
 
     return df_filtered["text"].tolist(), df_filtered["category"].tolist()
@@ -42,7 +47,7 @@ def train_huffpost_baseline(
     max_features: int = 100000,
     ngram_max: int = 2,
     min_df: int = 2,
-    stop_words: str | None = "english",
+    stop_words_setting: str | None = "english",
 ):
     texts, labels = load_huffpost_data(data_path, min_samples=min_samples)
 
@@ -70,7 +75,7 @@ def train_huffpost_baseline(
         max_features=max_features,
         ngram_range=(1, ngram_max),
         lowercase=True,
-        stop_words=stop_words,
+        stop_words=stop_words_setting,
         min_df=min_df,
     )
     X_train_vec = vectorizer.fit_transform(X_train)
@@ -114,7 +119,11 @@ def train_huffpost_baseline(
     label_meta = {"classes_": np.array(unique_labels)}
     joblib.dump(label_meta, os.path.join(output_dir, "label_meta.pkl"))
 
-    with open(os.path.join(output_dir, "metrics.txt"), "w") as f:
+    with open(
+        os.path.join(output_dir, "metrics.txt"),
+        "w",
+        encoding="utf-8",
+    ) as f:
         f.write(f"macro_f1={macro_f1:.4f}\n")
         f.write(f"weighted_f1={weighted_f1:.4f}\n")
         f.write(f"categories={len(unique_labels)}\n")
@@ -160,5 +169,5 @@ if __name__ == "__main__":
         max_features=args.max_features,
         ngram_max=args.ngram_max,
         min_df=args.min_df,
-        stop_words=stop_words,
+        stop_words_setting=stop_words,
     )

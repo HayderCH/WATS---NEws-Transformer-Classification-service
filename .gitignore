@@ -56,6 +56,29 @@ artifacts/cache/
 models/
 !models/.gitkeep
 
+# Model weight & serialized artifact files
+*.ckpt
+*.ckpt.*
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.onnx
+*.h5
+*.pb
+*.joblib
+*.pkl
+*.pickle
+*.dill
+*.sav
+
+# Large archives produced during experiments
+artifacts/**/*.zip
+artifacts/**/*.tar
+artifacts/**/*.tar.gz
+artifacts/**/*.tgz
+artifacts/**/*.7z
+
 # Training run artifacts
 **/checkpoints/
 **/runs/

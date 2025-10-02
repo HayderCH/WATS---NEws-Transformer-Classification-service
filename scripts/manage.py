@@ -25,8 +25,14 @@ from scripts.train_baseline import train_baseline  # noqa: E402
 from scripts.train_transformer import (  # noqa: E402
     train_transformer_classifier,
 )
+from scripts.train_transformer_huffpost import (  # noqa: E402
+    train_huffpost_transformer,
+)
 from scripts.eval_transformer import evaluate  # noqa: E402
 from app.services import create_artifact_publisher  # noqa: E402
+from app.services.active_learning import (  # noqa: E402
+    collect_active_learning_examples,
+)
 
 app = typer.Typer(help="MLOps workflow commands.")
 
@@ -44,7 +50,7 @@ def _session_factory(db_url: str):
 
 @app.command("seed-db")
 def seed_db(
-    overwrite: bool = typer.Option(False, help="Refresh sample rows."),
+    overwrite: bool = False,
 ) -> None:
     """Populate the feedback SQLite database with demo data."""
 
@@ -75,9 +81,7 @@ def seed_db(
 def train_baseline_cmd(
     output_dir: Path = typer.Option(
         Path("models/classifier"),
-        help=(
-            "Directory to store the fitted TF-IDF and logistic regression " "artifacts."
-        ),
+        help="Directory for TF-IDF + logistic regression artifacts.",
     ),
     limit: Optional[int] = typer.Option(
         None,
@@ -133,7 +137,7 @@ def eval_transformer_cmd(
     batch_size: int = typer.Option(64, help="Evaluation batch size."),
     max_length: int = typer.Option(256, help="Max token length."),
     use_headline_only: bool = typer.Option(
-        False, help="Use only the headline text when evaluating."
+        False, is_flag=True, help="Use only the headline text when evaluating."
     ),
     test_size: float = typer.Option(
         0.15,
@@ -157,6 +161,115 @@ def eval_transformer_cmd(
         seed=seed,
         limit=limit,
     )
+
+
+@app.command("active-finetune")
+def active_finetune_cmd(
+    base_data_path: Path = typer.Option(
+        Path("data/raw/huffpost/News_Category_Dataset_v3.json"),
+        help="Path to the baseline HuffPost JSON dataset.",
+    ),
+    output_dir: Path = typer.Option(
+        Path("models/transformer_huffpost"),
+        help=(
+            "Directory where the fine-tuned model checkpoints will be "
+            "stored."
+        ),
+    ),
+    min_samples: int = typer.Option(
+        50,
+        help="Minimum samples per category after augmentation.",
+    ),
+    training_threshold: int = typer.Option(
+        20,
+        help="Minimum labeled examples required before training proceeds.",
+    ),
+    epochs: int = typer.Option(
+        1,
+        help="Number of active-learning fine-tune epochs.",
+    ),
+    train_batch_size: int = typer.Option(8, help="Training batch size."),
+    eval_batch_size: int = typer.Option(16, help="Evaluation batch size."),
+    learning_rate: float = typer.Option(
+        5e-6,
+        help="Learning rate for fine-tuning.",
+    ),
+    limit: Optional[int] = typer.Option(
+        None,
+        help="Optional cap on the augmented dataset size for quicker runs.",
+    ),
+    use_headline_only: bool = typer.Option(
+        False,
+        is_flag=True,
+        help="Use only the headline text when assembling the dataset.",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        is_flag=True,
+        help="Skip training and only report labeled example statistics.",
+    ),
+) -> None:
+    """Fine-tune the HuffPost transformer with human-labeled feedback."""
+
+    get_settings.cache_clear()
+    settings = get_settings()
+    engine, Session = _session_factory(settings.db_url)
+    try:
+        with Session() as session:
+            examples, stats = collect_active_learning_examples(
+                session,
+                training_threshold=training_threshold,
+            )
+    finally:
+        engine.dispose()
+
+    total = stats["total_examples"]
+    typer.echo(
+        "Active-learning dataset: "
+        f"{stats['review_labeled']} review items + "
+        f"{stats['feedback_labeled']} feedback entries = {total} examples"
+    )
+    if stats.get("distinct_labels"):
+        labels_obj = stats.get("distinct_labels") or []
+        labels_fmt = ", ".join(str(label) for label in labels_obj)
+        typer.echo("Distinct labels: " + labels_fmt)
+    latest = stats.get("latest_label_at")
+    if isinstance(latest, datetime):
+        typer.echo(f"Most recent human label: {latest.isoformat()}")
+
+    if total == 0:
+        typer.echo("No labeled examples available yet. Nothing to train.")
+        raise typer.Exit(code=0)
+
+    if total < training_threshold:
+        typer.echo(
+            "Warning: Labeled examples below training threshold "
+            f"({total} < {training_threshold})."
+        )
+
+    if dry_run:
+        typer.echo("Dry run requested; skipping fine-tuning.")
+        raise typer.Exit(code=0)
+
+    if not base_data_path.exists():
+        typer.echo(f"Base dataset not found: {base_data_path}")
+        raise typer.Exit(code=1)
+
+    results = train_huffpost_transformer(
+        data_path=str(base_data_path),
+        output_dir=str(output_dir),
+        min_samples=min_samples,
+        limit=limit,
+        epochs=epochs,
+        train_batch_size=train_batch_size,
+        eval_batch_size=eval_batch_size,
+        learning_rate=learning_rate,
+        use_headline_only=use_headline_only,
+        extra_examples=examples,
+    )
+
+    summary = ", ".join(f"{k}={v:.4f}" for k, v in results.items())
+    typer.echo(f"Active learning fine-tune complete. {summary}")
 
 
 def _resolve_sources(raw: str, project_root: Path, settings) -> list[Path]:

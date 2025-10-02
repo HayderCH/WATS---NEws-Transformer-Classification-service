@@ -1,185 +1,129 @@
-# News Topic Classification & Summarization (MVP)
+docker compose up --build
+# News Topic Intelligence Service
 
-This repository hosts a FastAPI microservice that:
+> Production-ready FastAPI platform for newsroom classification & summarization with an automated review loop and reproducible ML workflow.
 
-- Classifies news article text into topics (AG News baseline to start)
-- Abstractive summarization via DistilBART (`sshleifer/distilbart-cnn-12-6`) with configurable generation params
-- Provides clean JSON endpoints for easy integration
+## ⚡ Spotlight: What I Delivered
 
-## Current Status (MVP Scaffold)
+- **Hardened the public API** with API-key enforcement, structured logging, latency metrics, and configurable JSON output so analysts and ops teams can trust every response.
+- **Built an active learning safety net** that funnels low-confidence predictions into a review queue and promotes human-label feedback back into the training pipeline.
+- **Automated the model lifecycle** through a Typer CLI that seeds demo data, trains TF-IDF and transformer models, evaluates them, and packages artifacts for S3-compatible storage.
+- **Stood up a Streamlit command center** showcasing classifier, summarizer, and live trends—perfect for stakeholder demos and recruiter-ready screenshots.
+- **Locked down the supply chain** by upgrading vulnerable dependencies and wiring CI to run Ruff, pytest, Bandit, and pip-audit on every push.
 
-- [x] Directory structure
-- [x] Baseline training script (`scripts/train_baseline.py`) for TF-IDF + Logistic Regression on AG News
-- [x] Pydantic schemas
-- [x] FastAPI endpoints: `/health`, `/classify_news`, `/summarize` (HF DistilBART)
-- [ ] Trend aggregation + persistence (future)
+## 🔑 Design Decisions & Impact
 
-## Quickstart (Windows PowerShell)
+### Active Learning Review Loop
+Low-confidence predictions from `/classify_news` (and the batch endpoint) are automatically queued in the database. Reviewers can label them, and the CLI can merge that feedback into future fine-tuning runs—one tight feedback loop instead of ad-hoc spreadsheets.
+
+### Transparent Operations From Day One
+Every request receives an `x-request-id`, metrics are exposed at `/metrics`, and logs are JSON-formatted by default. Turning on `LOG_JSON=0` flips back to console-friendly logs when you just need to prototype.
+
+### Reproducible Training Runs
+`scripts/manage.py` is the single entry point for seeding, baseline training, transformer fine-tuning, evaluation, and artifact bundling. Each command supports explicit seeds, dataset limits, and MLflow instrumentation so you can rerun experiments without surprise drift.
+
+### Security & CI Discipline
+Dependency upgrades removed historical CVEs, GitHub Actions enforces lint + tests + security scans, and `.env.example` documents every secret toggle (API keys, artifact pushes, MLflow). Recruiters love seeing end-to-end ownership, not just a model notebook.
+
+## � Architecture Snapshot
+
+```
+        +---------------------------+
+        |      FastAPI service      |
+        |   (app/main.py routes)    |
+        +----+----------------+-----+
+             |                |
+   Classifier service    Summarizer service
+ (TF-IDF / Transformer)     (DistilBART)
+             |                |
+        Model artifacts    Hugging Face Hub
+             |
+        Typer CLI (scripts/manage.py)
+     ┌──────────┴───────────┐
+ bundle-artifacts     train/eval commands
+             |
+     Artifact store (local zip / S3)
+
+Optional: MLflow experiment tracking (params, metrics, artifacts)
+```
+
+## 🚀 Run It Locally (Windows PowerShell)
+
+1. Copy `.env.example` to `.env`, set `API_KEY`, and point to your datasets/models.
+2. Create a virtual environment and install dependencies:
 
 ```powershell
 python -m venv .venv
 . .venv/Scripts/Activate.ps1
 pip install --upgrade pip
 pip install -r requirements.txt
-
-# Train baseline (downloads AG News via Hugging Face datasets)
-python scripts/train_baseline.py --output-dir models/classifier --limit 5000
-
-# Run API
-uvicorn app.main:app --reload --port 8000
 ```
 
-### Database Migrations & Seed Data
-
-After installing dependencies, bring your SQLite schema up to date and load demo
-rows for the feedback/review queues:
+3. Prepare the database and demo content:
 
 ```powershell
 python -m alembic -c alembic.ini upgrade head
-python scripts/seed_db.py  # add --overwrite to refresh demo content
-```
-
-### Run with Docker
-
-Build the image and start the API (migrations run automatically on boot):
-
-```powershell
-docker compose up --build
-```
-
-This mounts the local `data/` and `models/` directories into the container so the
-SQLite database and model artifacts persist between restarts.
-
-### Unified CLI (Training, Evaluation, Ops)
-
-The Typer-based CLI consolidates the training/evaluation utilities and safe DB
-seeding behind a single entry point:
-
-```powershell
-# populate demo data (creates tables if needed)
 python scripts/manage.py seed-db --overwrite
-
-# train the lightweight TF-IDF + logistic regression model
-python scripts/manage.py train-baseline --limit 2000 --output-dir models/classifier_huffpost
-
-# fine-tune a transformer (AG News)
-python scripts/manage.py train-transformer --model-name distilbert-base-uncased
-
-# evaluate a trained transformer against the HuffPost dataset
-python scripts/manage.py eval-transformer models/transformer_huffpost data/raw/huffpost/News_Category_Dataset_v3.json
-
-# bundle local model artifacts into a timestamped zip
-python scripts/manage.py bundle-artifacts --sources models,classifier --label nightly
-
-# push a bundle to remote storage (reads ARTIFACT_* env vars)
-python scripts/manage.py bundle-artifacts --push --remote-name nightly.zip
 ```
 
-### Artifact publishing to object storage
-
-The `bundle-artifacts` command can ship the generated archive to an S3-compatible
-bucket. Configure the target via `.env`:
-
-```env
-ARTIFACT_STORE_TYPE=s3
-ARTIFACT_S3_BUCKET=news-artifacts
-# Optional
-ARTIFACT_S3_REGION=us-east-1
-ARTIFACT_S3_ENDPOINT=http://localhost:9000  # for MinIO or other custom endpoints
-ARTIFACT_S3_PREFIX=nightly
-ARTIFACT_S3_PATH_STYLE=1
-ARTIFACT_PUSH_DEFAULT=1  # make --push the default behaviour
-```
-
-When `ARTIFACT_PUSH_DEFAULT` is `1`, running `bundle-artifacts` without flags will
-upload automatically. Override per invocation with `--push/--no-push`, or provide
-`--remote-name` to change the object key.
-
-Every bundle also carries an `artifact-manifest.json` at the archive root that
-records the timestamp, label, resolved sources, push preference, and key
-artifact-related settings.
-
-### Authentication & Request IDs
-
-If you set `API_KEY` (or `API_KEYS`) in your `.env`, all write-sensitive endpoints (batch classify, review mutations, feedback submission, dataset export, `/metrics/reset`) enforce an API key header. The default header name is `x-api-key`.
+4. (Optional) Fine-tune or retrain models:
 
 ```powershell
-$headers = @{ 'x-api-key' = $env:API_KEY }
-Invoke-RestMethod -Uri http://127.0.0.1:8000/review/enqueue -Headers $headers -Method Post -Body (@{
-  text = 'low confidence sample'
-  predicted_label = 'TECH'
-  confidence_score = 0.42
-  confidence_margin = 0.07
-} | ConvertTo-Json) -ContentType 'application/json'
+# TF-IDF baseline on AG News
+python scripts/manage.py train-baseline --limit 5000
+
+# HuffPost transformer (place dataset under data/raw/huffpost first)
+python scripts/manage.py train-transformer --data-path data/raw/huffpost/News_Category_Dataset_v3.json
 ```
 
-Every response also returns an `x-request-id` header so logs and client traces can be correlated.
-
-### Example Request (Classification)
+5. Launch the API:
 
 ```powershell
-$body = @{ title = "New Satellite Launch"; text = "A private aerospace firm launched a new satellite..." } | ConvertTo-Json
-Invoke-RestMethod -Uri http://127.0.0.1:8000/classify_news -Method POST -Body $body -ContentType 'application/json'
+uvicorn app.main:app --reload --port 8000
 ```
 
-### Response (Sample)
+6. (Optional) Bring up the entire stack with Docker:
 
-```json
-{
-  "top_category": "3",
-  "categories": [
-    { "name": "3", "prob": 0.85 },
-    { "name": "1", "prob": 0.08 },
-    { "name": "2", "prob": 0.05 }
-  ],
-  "model_version": "clf_v1",
-  "latency_ms": 12.4
-}
+```powershell
+
 ```
 
-(AG News labels: 0 = World, 1 = Sports, 2 = Business, 3 = Sci/Tech)
+## 📊 Ops & Tooling Quick Reference
 
-## Project Layout
+- **Review queue triage**: `python scripts/manage.py active-finetune --dry-run` shows what will feed the next training pass.
+- **Bundle deployable artifacts**: `python scripts/manage.py bundle-artifacts --label nightly --push` zips configs + models and pushes to S3-compatible storage when `ARTIFACT_STORE_TYPE=s3`.
+- **Security & quality**: `ruff check .`, `bandit -r app scripts dashboard -ll`, `pip-audit`, and `pytest` match the CI pipeline.
+- Docs for deeper dives live under `docs/DEPLOYMENT.md` and `docs/RUNBOOK.md`.
+
+## 👀 Demo Dashboard
+
+```powershell
+streamlit run dashboard/streamlit_app.py
+```
+
+The Streamlit app mirrors real API calls, showcases confidence scores, and surfaces trend charts from `/trends`—ideal for walking a recruiter through the product without hitting the raw JSON endpoints.
+
+## � Project Layout
 
 ```
 app/
-  api/routes/*.py
-  services/
-  core/config.py
-scripts/train_baseline.py
-models/classifier/*.pkl
+  api/routes/            # FastAPI routers (classify, summarize, review, metrics, ...)
+  core/                  # Config, logging, security, metrics globals
+  services/              # Classifier, summarizer, artifact store, MLflow helpers
+  db/                    # SQLAlchemy models & session helpers
+scripts/                 # Training, evaluation, artifact management commands
+dashboard/               # Streamlit demo application
+tests/                   # pytest suite (API, CLI, metrics, MLflow, ...)
+docs/                    # Deployment + runbook guidance
 ```
 
-## Next Steps
+## 🌟 Next Horizons
 
-1. Promote dataset/model artifacts to remote storage (S3/Azure blob) and wire
-   configurable paths.
-2. Package model training + evaluation into reproducible CLI workflows.
-3. Add health/metrics dashboards (Grafana or Lightdash) atop the existing metrics.
-4. Introduce optional MLflow tracking once deployment workflow is stable.
-
-## Environment Variables
-
-See `.env.example`. Notable flags:
-
-- `API_KEY` / `API_KEYS` — comma-separated list of keys required for protected routes.
-- `API_KEY_HEADER` — override the header name (default `x-api-key`).
-- `REQUEST_ID_HEADER` — change the request identifier header (default `x-request-id`).
-- `LOG_JSON` — set to `0` to emit human-readable request logs instead of JSON.
-- Summarizer controls: `SUMMARIZER_MAX_NEW_TOKENS`, `SUMMARIZER_MIN_NEW_TOKENS`, `SUMMARIZER_NUM_BEAMS`, `SUMMARIZER_TRUNCATE_TOKENS`.
-- Artifact publishing: `ARTIFACT_STORE_TYPE`, `ARTIFACT_S3_BUCKET`,
-  `ARTIFACT_S3_REGION`, `ARTIFACT_S3_ENDPOINT`, `ARTIFACT_S3_PREFIX`,
-  `ARTIFACT_S3_PATH_STYLE`, `ARTIFACT_PUSH_DEFAULT`.
-
-## Notes
-
-- Lint warnings (line length) intentionally ignored for speed; can add `ruff`/`flake8` later.
-- Summarization now uses DistilBART (CPU). Tune via env vars: `SUMMARIZER_MAX_NEW_TOKENS`, `SUMMARIZER_MIN_NEW_TOKENS`, `SUMMARIZER_NUM_BEAMS`, `SUMMARIZER_TRUNCATE_TOKENS`.
-
-## License / Dataset Attribution
-
-Educational use. Cite AG News dataset source. Will add more explicit licensing notes later.
+- Bias and drift analysis for the review queue.
+- Scheduled retraining with GitHub Actions + artifact promotion.
+- Container image hardening and SBOM generation.
 
 ---
 
-Reach out for the next iteration plan (transformer fine-tune + trends) when ready.
+Have questions or want a live walk-through? Open an issue or reach out—happy to demo how each decision keeps the pipeline production-ready.
+- **API keys** – Set `API_KEY` or `API_KEYS` to lock down batch classification, review mutations, feedback ingestion, dataset export, and `/metrics/reset`.

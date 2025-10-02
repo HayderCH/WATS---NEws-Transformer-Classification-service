@@ -83,7 +83,8 @@ def create_artifact_publisher(settings: "Settings") -> ArtifactPublisher:
         bucket = settings.artifact_s3_bucket
         if not bucket:
             raise ValueError(
-                "ARTIFACT_S3_BUCKET must be set when using the S3 artifact" " store."
+                "ARTIFACT_S3_BUCKET must be set when using the S3 artifact"
+                " store."
             )
         return S3ArtifactPublisher(
             bucket=bucket,

@@ -8,10 +8,51 @@ import zipfile
 import sqlalchemy as sa
 from typer.testing import CliRunner
 
-from app.db.models import Feedback, ReviewItem
+from app.db.models import Base, Feedback, ReviewItem
 
 
 runner = CliRunner()
+
+
+def _seed_active_learning_records(db_url: str) -> None:
+    engine = sa.create_engine(db_url, future=True)
+    Base.metadata.create_all(engine)
+    Session = sa.orm.sessionmaker(bind=engine, future=True)
+    try:
+        with Session() as session:
+            session.add_all(
+                [
+                    ReviewItem(
+                        text=(
+                            "Economic update awaiting verification "
+                            "by analysts."
+                        ),
+                        predicted_label="BUSINESS",
+                        confidence_score=0.21,
+                        confidence_margin=0.03,
+                        model_version="v-cli",
+                        labeled=1,
+                        true_label="business insights",
+                        top_labels=[
+                            {"name": "BUSINESS", "prob": 0.52},
+                            {"name": "POLITICS", "prob": 0.21},
+                        ],
+                    ),
+                    Feedback(
+                        text=(
+                            "Reader feedback confirming technology "
+                            "categorization."
+                        ),
+                        predicted_label="TECH",
+                        true_label="technology",
+                        model_version="v-cli",
+                        confidence_score=0.87,
+                    ),
+                ]
+            )
+            session.commit()
+    finally:
+        engine.dispose()
 
 
 def test_seed_db_cli_command(tmp_path, monkeypatch):
@@ -159,3 +200,82 @@ def test_bundle_artifacts_push_cli(monkeypatch, tmp_path):
         assert manifest["push_requested"] is True
         assert manifest["remote_name"] == "custom.zip"
         assert manifest["settings"]["artifact_store_type"] == "s3"
+
+
+def test_active_finetune_cli_dry_run(monkeypatch, tmp_path):
+    db_path = tmp_path / "active_cli.db"
+    db_url = f"sqlite:///{db_path.as_posix()}"
+    _seed_active_learning_records(db_url)
+
+    monkeypatch.setenv("DB_URL", db_url)
+
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
+
+    from scripts.manage import app
+
+    env = {**os.environ, "DB_URL": db_url}
+    result = runner.invoke(
+        app,
+        [
+            "active-finetune",
+            "--training-threshold",
+            "1",
+            "--dry-run",
+        ],
+        env=env,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Dry run requested" in result.output
+    assert "review items" in result.output
+
+
+def test_active_finetune_cli_triggers_training(monkeypatch, tmp_path):
+    db_path = tmp_path / "active_cli_training.db"
+    db_url = f"sqlite:///{db_path.as_posix()}"
+    _seed_active_learning_records(db_url)
+
+    dataset_path = tmp_path / "dummy_dataset.json"
+    dataset_path.write_text("[]", encoding="utf-8")
+
+    monkeypatch.setenv("DB_URL", db_url)
+
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
+
+    import scripts.manage as manage
+
+    calls: dict[str, object] = {}
+
+    def _fake_train(**kwargs):
+        calls["kwargs"] = kwargs
+        return {"f1_macro": 0.42, "accuracy": 0.7}
+
+    monkeypatch.setattr(manage, "train_huffpost_transformer", _fake_train)
+
+    env = {**os.environ, "DB_URL": db_url}
+    result = runner.invoke(
+        manage.app,
+        [
+            "active-finetune",
+            "--base-data-path",
+            str(dataset_path),
+            "--training-threshold",
+            "1",
+            "--min-samples",
+            "1",
+        ],
+        env=env,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Active learning fine-tune complete" in result.output
+    assert calls
+    kwargs = calls["kwargs"]  # type: ignore[index]
+    assert isinstance(kwargs, dict)
+    assert kwargs["extra_examples"]
+    assert len(kwargs["extra_examples"]) == 2
+    assert kwargs["limit"] is None

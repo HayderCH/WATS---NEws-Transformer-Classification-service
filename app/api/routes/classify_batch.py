@@ -40,8 +40,10 @@ def classify_batch_route(
     try:
         for src, res in zip(items, results):
             if (
-                res.get("confidence_score", 1.0) < _settings.review_conf_threshold
-                or res.get("confidence_margin", 1.0) < _settings.review_margin_threshold
+                res.get("confidence_score", 1.0)
+                < _settings.review_conf_threshold
+                or res.get("confidence_margin", 1.0)
+                < _settings.review_margin_threshold
             ):
                 text = (
                     f"{src.get('title')}. {src.get('text')}"

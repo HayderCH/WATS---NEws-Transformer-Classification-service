@@ -28,7 +28,12 @@ def prepare_eval_split(
     seed: int = 42,
     limit: int | None = None,
 ):
-    ds: Dataset = load_dataset("json", data_files=data_path, split="train")
+    # nosec B615: local JSON file, not a remote download
+    ds: Dataset = load_dataset(
+        "json",
+        data_files=data_path,
+        split="train",
+    )  # nosec B615
 
     def build_fields(example):
         headline = example.get("headline") or ""
@@ -42,7 +47,9 @@ def prepare_eval_split(
         return {"text": text, "category": category}
 
     keep_cols = [
-        c for c in ds.column_names if c in {"headline", "short_description", "category"}
+        c
+        for c in ds.column_names
+        if c in {"headline", "short_description", "category"}
     ]
     ds = ds.map(
         build_fields,
@@ -101,7 +108,9 @@ def evaluate(
             meta_path = model_root.parent / "label_meta.json"
             model_root = model_root.parent
         else:
-            raise FileNotFoundError(f"label_meta.json not found near {model_dir}")
+            raise FileNotFoundError(
+                f"label_meta.json not found near {model_dir}"
+            )
 
     with open(meta_path, "r") as f:
         label_meta = json.load(f)
@@ -111,8 +120,16 @@ def evaluate(
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tdir = model_root / "best"
-    tokenizer = AutoTokenizer.from_pretrained(str(tdir))
-    model = AutoModelForSequenceClassification.from_pretrained(str(tdir)).to(device)
+    tokenizer = AutoTokenizer.from_pretrained(
+        str(tdir),
+        local_files_only=True,
+    )  # nosec B615
+    model = AutoModelForSequenceClassification.from_pretrained(
+        str(tdir),
+        local_files_only=True,
+    ).to(
+        device
+    )  # nosec B615
     model.eval()
 
     _, val_ds = prepare_eval_split(
@@ -126,7 +143,11 @@ def evaluate(
 
     # Tokenize
     def tok_fn(examples):
-        return tokenizer(examples["text"], truncation=True, max_length=max_length)
+        return tokenizer(
+            examples["text"],
+            truncation=True,
+            max_length=max_length,
+        )
 
     cols_to_remove = [c for c in val_ds.column_names if c != "labels"]
     val_tok = val_ds.map(tok_fn, batched=True, remove_columns=cols_to_remove)
@@ -148,7 +169,9 @@ def evaluate(
             }
             outputs = model(**inputs)
             logits = outputs.logits
-            preds = torch.argmax(logits, dim=-1).detach().cpu().numpy().tolist()
+            preds = (
+                torch.argmax(logits, dim=-1).detach().cpu().numpy().tolist()
+            )
             all_labels.extend(labels)
             all_preds.extend(preds)
 
@@ -182,8 +205,16 @@ def evaluate(
 
 def parse_args():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model-dir", required=True, help="Path to trained model dir")
-    ap.add_argument("--data-path", required=True, help="Path to HuffPost JSON data")
+    ap.add_argument(
+        "--model-dir",
+        required=True,
+        help="Path to trained model dir",
+    )
+    ap.add_argument(
+        "--data-path",
+        required=True,
+        help="Path to HuffPost JSON data",
+    )
     ap.add_argument("--batch-size", type=int, default=64)
     ap.add_argument("--max-length", type=int, default=256)
     ap.add_argument("--use-headline-only", action="store_true")

@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 from pathlib import Path
 import torch
 from datasets import load_dataset
@@ -17,10 +18,19 @@ import numpy as np
 from app.core.config import get_settings
 from app.services import mlflow_run
 
+HF_DATASET_AG_NEWS_REVISION = os.getenv(
+    "HF_DATASET_AG_NEWS_REVISION",
+    "refs/convert/parquet",
+)
+HF_MODEL_REVISION = os.getenv("HF_MODEL_REVISION", "main")
+
 
 def load_ag_news_for_transformer():
     """Load AG News and format for transformers"""
-    ds = load_dataset("ag_news")
+    ds = load_dataset(
+        "ag_news",
+        revision=HF_DATASET_AG_NEWS_REVISION,
+    )  # nosec B615
 
     # Map labels to text names for better training
     label_names = ["WORLD", "SPORTS", "BUSINESS", "SCIENCE_TECH"]
@@ -52,7 +62,7 @@ def compute_metrics(eval_pred):
 
 def train_transformer_classifier(
     model_name: str = "distilbert-base-uncased",
-    output_dir: str = "models/transformer_classifier",
+    output_dir: str = "models/transformer_agnews",
     limit: int = None,
     epochs: int = 3,
     train_batch_size: int = 16,
@@ -66,10 +76,15 @@ def train_transformer_classifier(
         test_ds = test_ds.select(range(min(limit // 4, len(test_ds))))
 
     # Initialize tokenizer and model
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_name,
+        revision=HF_MODEL_REVISION,
+    )  # nosec B615
     model = AutoModelForSequenceClassification.from_pretrained(
-        model_name, num_labels=len(label_names)
-    )
+        model_name,
+        num_labels=len(label_names),
+        revision=HF_MODEL_REVISION,
+    )  # nosec B615
 
     # Optional GPU niceties
     if torch.cuda.is_available():
@@ -147,7 +162,9 @@ def train_transformer_classifier(
                 "use_bf16": use_bf16,
                 "use_fp16": use_fp16,
             }
-            mlflow_ctx.log_params({k: str(v) for k, v in param_payload.items()})
+            mlflow_ctx.log_params(
+                {k: str(v) for k, v in param_payload.items()}
+            )
 
         # Initialize trainer with dynamic padding collator
         data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
@@ -215,7 +232,7 @@ def train_transformer_classifier(
 def parse_args():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model-name", default="distilbert-base-uncased")
-    ap.add_argument("--output-dir", default="models/transformer_classifier")
+    ap.add_argument("--output-dir", default="models/transformer_agnews")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--epochs", type=int, default=3)
     ap.add_argument("--train-batch-size", type=int, default=16)

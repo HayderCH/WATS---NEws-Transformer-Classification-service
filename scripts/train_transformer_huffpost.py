@@ -1,11 +1,12 @@
 import argparse
 import json
+import os
 from collections import Counter, defaultdict
 from pathlib import Path
 
 import numpy as np
 import torch
-from datasets import load_dataset, Dataset
+from datasets import load_dataset, Dataset, concatenate_datasets
 from transformers import (
     AutoTokenizer,
     AutoModelForSequenceClassification,
@@ -17,6 +18,10 @@ from transformers import (
 from transformers import DebertaV2Tokenizer
 from sklearn.metrics import accuracy_score, f1_score
 import torch.nn as nn
+
+
+HF_DATASET_JSON_REVISION = os.getenv("HF_DATASET_JSON_REVISION", "main")
+HF_MODEL_REVISION = os.getenv("HF_MODEL_REVISION", "main")
 
 
 def compute_metrics(eval_pred):
@@ -41,9 +46,29 @@ def prepare_huffpost_dataset(
     test_size: float = 0.15,
     seed: int = 42,
     use_headline_only: bool = False,
+    extra_examples: list[dict[str, str]] | None = None,
 ):
     # Load JSONL via HF datasets
-    ds: Dataset = load_dataset("json", data_files=data_path, split="train")
+    ds: Dataset = load_dataset(
+        "json",
+        data_files=data_path,
+        split="train",
+        revision=HF_DATASET_JSON_REVISION,
+    )  # nosec B615
+
+    if extra_examples:
+        normalized = []
+        for row in extra_examples:
+            normalized.append(
+                {
+                    "headline": row.get("headline", ""),
+                    "short_description": row.get("short_description", ""),
+                    "category": row.get("category", ""),
+                }
+            )
+        if normalized:
+            extra_ds = Dataset.from_list(normalized)
+            ds = concatenate_datasets([ds, extra_ds])
 
     # Build text (headline + short_description) and normalize category
     def build_fields(example):
@@ -102,7 +127,10 @@ def prepare_huffpost_dataset(
     val_ds = ds.select(val_indices)
 
     # Simple dataset stats
-    print("Samples after filtering: " f"{len(ds)} across {len(label_names)} categories")
+    print(
+        "Samples after filtering: "
+        f"{len(ds)} across {len(label_names)} categories"
+    )
 
     return train_ds, val_ds, label_names, label2id, id2label
 
@@ -134,27 +162,48 @@ def train_huffpost_transformer(
     seed: int = 42,
     gradient_checkpointing: bool = True,
     use_class_weights: bool = True,
+    extra_examples: list[dict[str, str]] | None = None,
 ):
-    train_ds, val_ds, label_names, label2id, id2label = prepare_huffpost_dataset(
+    (
+        train_ds,
+        val_ds,
+        label_names,
+        label2id,
+        id2label,
+    ) = prepare_huffpost_dataset(
         data_path,
         min_samples=min_samples,
         limit=limit,
         test_size=test_size,
         seed=seed,
         use_headline_only=use_headline_only,
+        extra_examples=extra_examples,
     )
+
+    if extra_examples:
+        print(
+            "Augmented training set with "
+            f"{len(extra_examples)} human-labeled items"
+        )
 
     # Load tokenizer with robust fallbacks
     use_model_name = model_name
     try:
-        tokenizer = AutoTokenizer.from_pretrained(use_model_name, use_fast=True)
+        tokenizer = AutoTokenizer.from_pretrained(
+            use_model_name,
+            use_fast=True,
+            revision=HF_MODEL_REVISION,
+        )  # nosec B615
     except Exception as e_fast:
         print(
             "Fast tokenizer failed, trying explicit slow DeBERTa tokenizer:",
             e_fast,
         )
         try:
-            tokenizer = DebertaV2Tokenizer.from_pretrained(use_model_name)
+            tokenizer = DebertaV2Tokenizer.from_pretrained(
+                use_model_name,
+                revision=HF_MODEL_REVISION,
+            )  # nosec B615
         except Exception as e_slow:
             print(
                 "DeBERTa tokenizer failed in both fast and slow modes. "
@@ -162,21 +211,28 @@ def train_huffpost_transformer(
                 e_slow,
             )
             use_model_name = fallback_model_name
-            tokenizer = AutoTokenizer.from_pretrained(use_model_name, use_fast=True)
+            tokenizer = AutoTokenizer.from_pretrained(
+                use_model_name,
+                use_fast=True,
+                revision=HF_MODEL_REVISION,
+            )  # nosec B615
 
     model = AutoModelForSequenceClassification.from_pretrained(
         use_model_name,
         num_labels=len(label_names),
         id2label=id2label,
         label2id=label2id,
-    )
+        revision=HF_MODEL_REVISION,
+    )  # nosec B615
 
     # Enable faster matmul; RTX 40-series supports bf16
     use_cuda = torch.cuda.is_available()
     if use_cuda:
         torch.set_float32_matmul_precision("high")
     is_bf16_supported = getattr(torch.cuda, "is_bf16_supported", None)
-    use_bf16 = bool(use_cuda and callable(is_bf16_supported) and is_bf16_supported())
+    use_bf16 = bool(
+        use_cuda and callable(is_bf16_supported) and is_bf16_supported()
+    )
     use_fp16 = bool(use_cuda and not use_bf16)
 
     # Diagnostics: show GPU and precision selections
@@ -189,7 +245,8 @@ def train_huffpost_transformer(
     if use_cuda and torch.cuda.device_count() > 0:
         try:
             names = [
-                torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())
+                torch.cuda.get_device_name(i)
+                for i in range(torch.cuda.device_count())
             ]
             print("GPU(s):", ", ".join(names))
         except Exception:
@@ -209,7 +266,11 @@ def train_huffpost_transformer(
     train_tok = train_ds.map(
         tokenize_fn, batched=True, remove_columns=cols_to_remove_train
     )
-    val_tok = val_ds.map(tokenize_fn, batched=True, remove_columns=cols_to_remove_val)
+    val_tok = val_ds.map(
+        tokenize_fn,
+        batched=True,
+        remove_columns=cols_to_remove_val,
+    )
 
     # Build dynamic training arguments
     args_kwargs = dict(
@@ -271,7 +332,9 @@ def train_huffpost_transformer(
         data_collator=data_collator,
         compute_metrics=compute_metrics,
         callbacks=[
-            EarlyStoppingCallback(early_stopping_patience=early_stopping_patience)
+            EarlyStoppingCallback(
+                early_stopping_patience=early_stopping_patience
+            )
         ],
     )
 
@@ -298,7 +361,11 @@ def train_huffpost_transformer(
                 logits = logits.float()
                 loss_fct = nn.CrossEntropyLoss(
                     weight=self.class_weights.to(logits.device),
-                    label_smoothing=getattr(self.args, "label_smoothing_factor", 0.0),
+                    label_smoothing=getattr(
+                        self.args,
+                        "label_smoothing_factor",
+                        0.0,
+                    ),
                 )
                 loss = loss_fct(
                     logits.view(-1, self.model.config.num_labels),
