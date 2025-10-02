@@ -71,14 +71,9 @@ class _ClassifierHolder:
             # Fallback to id labels 0..N-1 if not found
             config = self.tr_model.config
             if hasattr(config, "id2label") and config.id2label:
-                self.label_names = {
-                    int(k): str(v)
-                    for k, v in config.id2label.items()
-                }
+                self.label_names = {int(k): str(v) for k, v in config.id2label.items()}
             else:
-                self.label_names = {
-                    i: str(i) for i in range(config.num_labels)
-                }
+                self.label_names = {i: str(i) for i in range(config.num_labels)}
 
     def predict(self, text: str, top_k: int = 5) -> Dict[str, Any]:
         self.load()
@@ -111,11 +106,7 @@ class _ClassifierHolder:
                     # Use autocast; fall back if dtype arg unsupported
                     try:
                         with autocast(
-                            dtype=(
-                                torch.bfloat16
-                                if self.use_bf16
-                                else torch.float16
-                            )
+                            dtype=(torch.bfloat16 if self.use_bf16 else torch.float16)
                         ):
                             logits = self.tr_model(**enc).logits
                     except TypeError:
@@ -161,9 +152,7 @@ class _ClassifierHolder:
         # Add suggestion for low confidence
         suggestion = None
         if confidence_level == "LOW":
-            suggestion = (
-                "Article may span multiple topics or need more context"
-            )
+            suggestion = "Article may span multiple topics or need more context"
         elif confidence_margin < 0.1:
             suggestion = "Close classification - consider human review"
 
@@ -232,9 +221,7 @@ def classify_batch(items: list[dict], top_k: int = 5) -> list[Dict[str, Any]]:
             )[:top_k]
             top_prob = categories_sorted[0]["prob"]
             second_prob = (
-                categories_sorted[1]["prob"]
-                if len(categories_sorted) > 1
-                else 0.0
+                categories_sorted[1]["prob"] if len(categories_sorted) > 1 else 0.0
             )
             margin = top_prob - second_prob
             if top_prob >= 0.8:
@@ -245,9 +232,7 @@ def classify_batch(items: list[dict], top_k: int = 5) -> list[Dict[str, Any]]:
                 level = "LOW"
             suggestion = None
             if level == "LOW":
-                suggestion = (
-                    "Article may span multiple topics or need more context"
-                )
+                suggestion = "Article may span multiple topics or need more context"
             elif margin < 0.1:
                 suggestion = "Close classification - consider human review"
             top_name = _classifier_holder.label_names.get(
@@ -292,10 +277,7 @@ def classify_batch(items: list[dict], top_k: int = 5) -> list[Dict[str, Any]]:
             else:
                 logits = _classifier_holder.tr_model(**enc).logits
             probs_mat = (
-                torch.softmax(logits.float(), dim=-1)
-                .to(torch.float32)
-                .cpu()
-                .numpy()
+                torch.softmax(logits.float(), dim=-1).to(torch.float32).cpu().numpy()
             )
         for row in probs_mat:
             top_idx = int(row.argmax())
@@ -311,9 +293,7 @@ def classify_batch(items: list[dict], top_k: int = 5) -> list[Dict[str, Any]]:
             )[:top_k]
             top_prob = categories_sorted[0]["prob"]
             second_prob = (
-                categories_sorted[1]["prob"]
-                if len(categories_sorted) > 1
-                else 0.0
+                categories_sorted[1]["prob"] if len(categories_sorted) > 1 else 0.0
             )
             margin = top_prob - second_prob
             if top_prob >= 0.8:
@@ -324,9 +304,7 @@ def classify_batch(items: list[dict], top_k: int = 5) -> list[Dict[str, Any]]:
                 level = "LOW"
             suggestion = None
             if level == "LOW":
-                suggestion = (
-                    "Article may span multiple topics or need more context"
-                )
+                suggestion = "Article may span multiple topics or need more context"
             elif margin < 0.1:
                 suggestion = "Close classification - consider human review"
             top_name = _classifier_holder.label_names.get(

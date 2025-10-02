@@ -77,9 +77,7 @@ def summarize_text(text: str, max_len: int = None, min_len: int = None):
     inputs = inputs.to(_SummarizerHolder.device)
     use_cuda = _SummarizerHolder.device.type == "cuda"
     autocast_ctx = (
-        torch.cuda.amp.autocast(dtype=torch.float16)
-        if use_cuda
-        else nullcontext()
+        torch.cuda.amp.autocast(dtype=torch.float16) if use_cuda else nullcontext()
     )
     with torch.inference_mode():
         # Autocast speeds up generation on CUDA while saving memory

@@ -36,12 +36,8 @@ class Settings(BaseModel):
     summarizer_model_revision: str = Field(
         default_factory=lambda: os.getenv("SUMMARIZER_MODEL_REVISION", "main")
     )
-    summarizer_max_new_tokens: int = int(
-        os.getenv("SUMMARIZER_MAX_NEW_TOKENS", "120")
-    )
-    summarizer_min_new_tokens: int = int(
-        os.getenv("SUMMARIZER_MIN_NEW_TOKENS", "25")
-    )
+    summarizer_max_new_tokens: int = int(os.getenv("SUMMARIZER_MAX_NEW_TOKENS", "120"))
+    summarizer_min_new_tokens: int = int(os.getenv("SUMMARIZER_MIN_NEW_TOKENS", "25"))
     summarizer_num_beams: int = int(os.getenv("SUMMARIZER_NUM_BEAMS", "4"))
     summarizer_truncate_tokens: int = int(
         os.getenv("SUMMARIZER_TRUNCATE_TOKENS", "512")
@@ -62,8 +58,7 @@ class Settings(BaseModel):
     )
     artifact_push_default: bool = Field(
         default_factory=lambda: (
-            os.getenv("ARTIFACT_PUSH_DEFAULT", "0").lower()
-            not in {"0", "false"}
+            os.getenv("ARTIFACT_PUSH_DEFAULT", "0").lower() not in {"0", "false"}
         )
     )
     artifact_store_type: str = Field(
@@ -83,8 +78,7 @@ class Settings(BaseModel):
     )
     artifact_s3_use_path_style: bool = Field(
         default_factory=lambda: (
-            os.getenv("ARTIFACT_S3_PATH_STYLE", "0").lower()
-            not in {"0", "false"}
+            os.getenv("ARTIFACT_S3_PATH_STYLE", "0").lower() not in {"0", "false"}
         )
     )
     # MLflow tracking
@@ -108,16 +102,10 @@ class Settings(BaseModel):
             "{prefix}-{timestamp}",
         )
     )
-    mlflow_tags_spec: str = Field(
-        default_factory=lambda: os.getenv("MLFLOW_TAGS", "")
-    )
+    mlflow_tags_spec: str = Field(default_factory=lambda: os.getenv("MLFLOW_TAGS", ""))
     # Active learning review thresholds
-    review_conf_threshold: float = float(
-        os.getenv("REVIEW_CONF_THRESHOLD", "0.6")
-    )
-    review_margin_threshold: float = float(
-        os.getenv("REVIEW_MARGIN_THRESHOLD", "0.1")
-    )
+    review_conf_threshold: float = float(os.getenv("REVIEW_CONF_THRESHOLD", "0.6"))
+    review_margin_threshold: float = float(os.getenv("REVIEW_MARGIN_THRESHOLD", "0.1"))
     # API security
     api_key_header: str = Field(
         default_factory=lambda: os.getenv("API_KEY_HEADER", "x-api-key")
@@ -130,9 +118,7 @@ class Settings(BaseModel):
     @model_validator(mode="after")
     def _populate_api_keys(self) -> "Settings":
         if not self.api_keys_csv:
-            self.api_keys_csv = (
-                os.getenv("API_KEYS") or os.getenv("API_KEY", "") or ""
-            )
+            self.api_keys_csv = os.getenv("API_KEYS") or os.getenv("API_KEY", "") or ""
         return self
 
     def allowed_api_keys(self) -> list[str]:

@@ -30,10 +30,7 @@ def load_huffpost_data(data_path: str, min_samples: int = 200):
     df_filtered = df[df["category"].isin(valid_categories)]
 
     print(f"Original categories: {len(category_counts)}")
-    print(
-        f"Filtered categories (>={min_samples} samples): "
-        f"{len(valid_categories)}"
-    )
+    print(f"Filtered categories (>={min_samples} samples): " f"{len(valid_categories)}")
     print(f"Total samples: {len(df_filtered)}")
 
     return df_filtered["text"].tolist(), df_filtered["category"].tolist()

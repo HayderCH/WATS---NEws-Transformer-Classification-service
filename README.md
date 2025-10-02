@@ -1,4 +1,5 @@
 docker compose up --build
+
 # News Topic Intelligence Service
 
 > Production-ready FastAPI platform for newsroom classification & summarization with an automated review loop and reproducible ML workflow.
@@ -14,15 +15,19 @@ docker compose up --build
 ## 🔑 Design Decisions & Impact
 
 ### Active Learning Review Loop
+
 Low-confidence predictions from `/classify_news` (and the batch endpoint) are automatically queued in the database. Reviewers can label them, and the CLI can merge that feedback into future fine-tuning runs—one tight feedback loop instead of ad-hoc spreadsheets.
 
 ### Transparent Operations From Day One
+
 Every request receives an `x-request-id`, metrics are exposed at `/metrics`, and logs are JSON-formatted by default. Turning on `LOG_JSON=0` flips back to console-friendly logs when you just need to prototype.
 
 ### Reproducible Training Runs
+
 `scripts/manage.py` is the single entry point for seeding, baseline training, transformer fine-tuning, evaluation, and artifact bundling. Each command supports explicit seeds, dataset limits, and MLflow instrumentation so you can rerun experiments without surprise drift.
 
 ### Security & CI Discipline
+
 Dependency upgrades removed historical CVEs, GitHub Actions enforces lint + tests + security scans, and `.env.example` documents every secret toggle (API keys, artifact pushes, MLflow). Recruiters love seeing end-to-end ownership, not just a model notebook.
 
 ## � Architecture Snapshot
@@ -126,4 +131,5 @@ docs/                    # Deployment + runbook guidance
 ---
 
 Have questions or want a live walk-through? Open an issue or reach out—happy to demo how each decision keeps the pipeline production-ready.
+
 - **API keys** – Set `API_KEY` or `API_KEYS` to lock down batch classification, review mutations, feedback ingestion, dataset export, and `/metrics/reset`.

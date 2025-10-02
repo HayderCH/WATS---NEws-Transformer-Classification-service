@@ -4,12 +4,12 @@ This document captures the security controls and outstanding follow-up items for
 
 ## Routine Checks
 
-| Control | Location | Frequency | Notes |
-| --- | --- | --- | --- |
-| Static application security testing | `bandit -r app scripts dashboard -ll` | Every PR (`security` job) | Surfaces FastAPI routing and Hugging Face usage issues. Local execution mirrors CI. |
-| Dependency vulnerability scanning | `pip-audit --format table` | Every PR (`dependency-audit` job) | Reports known CVEs across both runtime (`requirements.txt`) and tooling (`requirements-dev.txt`). |
-| Linting & style | `ruff check` | Every PR (`lint` job) | Helps catch unsafe patterns (e.g., eval usage) and keeps code uniform. |
-| Tests | `pytest` | Every PR (`test` job) | Validates functional behaviour after security changes. |
+| Control                             | Location                              | Frequency                         | Notes                                                                                             |
+| ----------------------------------- | ------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Static application security testing | `bandit -r app scripts dashboard -ll` | Every PR (`security` job)         | Surfaces FastAPI routing and Hugging Face usage issues. Local execution mirrors CI.               |
+| Dependency vulnerability scanning   | `pip-audit --format table`            | Every PR (`dependency-audit` job) | Reports known CVEs across both runtime (`requirements.txt`) and tooling (`requirements-dev.txt`). |
+| Linting & style                     | `ruff check`                          | Every PR (`lint` job)             | Helps catch unsafe patterns (e.g., eval usage) and keeps code uniform.                            |
+| Tests                               | `pytest`                              | Every PR (`test` job)             | Validates functional behaviour after security changes.                                            |
 
 ## Hugging Face Hardening
 

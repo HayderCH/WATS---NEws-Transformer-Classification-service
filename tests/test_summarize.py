@@ -17,4 +17,3 @@ def test_summarize():
     data = resp.json()
     assert "summary" in data
     assert len(data["summary"].split()) > 3
-
