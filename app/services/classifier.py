@@ -61,9 +61,7 @@ _STUB_KEYWORDS: Dict[str, tuple[str, ...]] = {
     ),
 }
 
-_LOW_CONFIDENCE_SUGGESTION = (
-    "Article may span multiple topics or need more context"
-)
+_LOW_CONFIDENCE_SUGGESTION = "Article may span multiple topics or need more context"
 _CLOSE_MARGIN_SUGGESTION = "Close classification - consider human review"
 
 _settings = get_settings()
@@ -141,7 +139,9 @@ class _ClassifierHolder:
             # Fallback to id labels 0..N-1 if not found
             config = self.tr_model.config
             if hasattr(config, "id2label") and config.id2label:
-                self.label_names = {int(k): str(v) for k, v in config.id2label.items()}
+                self.label_names = {
+                    int(key): str(value) for key, value in config.id2label.items()
+                }
             else:
                 self.label_names = {i: str(i) for i in range(config.num_labels)}
 
@@ -237,9 +237,7 @@ class _ClassifierHolder:
         # Calculate confidence metrics
         top_prob = categories_sorted[0]["prob"]
         second_prob = (
-            categories_sorted[1]["prob"]
-            if len(categories_sorted) > 1
-            else 0.0
+            categories_sorted[1]["prob"] if len(categories_sorted) > 1 else 0.0
         )
         confidence_margin = top_prob - second_prob
 
@@ -327,9 +325,7 @@ def classify_batch(items: list[dict], top_k: int = 5) -> list[Dict[str, Any]]:
             )[:top_k]
             top_prob = categories_sorted[0]["prob"]
             second_prob = (
-                categories_sorted[1]["prob"]
-                if len(categories_sorted) > 1
-                else 0.0
+                categories_sorted[1]["prob"] if len(categories_sorted) > 1 else 0.0
             )
             margin = top_prob - second_prob
             if top_prob >= 0.8:
@@ -385,10 +381,7 @@ def classify_batch(items: list[dict], top_k: int = 5) -> list[Dict[str, Any]]:
             else:
                 logits = _classifier_holder.tr_model(**enc).logits
             probs_mat = (
-                torch.softmax(logits.float(), dim=-1)
-                .to(torch.float32)
-                .cpu()
-                .numpy()
+                torch.softmax(logits.float(), dim=-1).to(torch.float32).cpu().numpy()
             )
         for row in probs_mat:
             top_idx = int(row.argmax())
@@ -404,9 +397,7 @@ def classify_batch(items: list[dict], top_k: int = 5) -> list[Dict[str, Any]]:
             )[:top_k]
             top_prob = categories_sorted[0]["prob"]
             second_prob = (
-                categories_sorted[1]["prob"]
-                if len(categories_sorted) > 1
-                else 0.0
+                categories_sorted[1]["prob"] if len(categories_sorted) > 1 else 0.0
             )
             margin = top_prob - second_prob
             if top_prob >= 0.8:
@@ -442,9 +433,7 @@ def classify_batch(items: list[dict], top_k: int = 5) -> list[Dict[str, Any]]:
             categories_sorted = categories[:top_k]
             top_prob = categories_sorted[0]["prob"]
             second_prob = (
-                categories_sorted[1]["prob"]
-                if len(categories_sorted) > 1
-                else 0.0
+                categories_sorted[1]["prob"] if len(categories_sorted) > 1 else 0.0
             )
             margin = top_prob - second_prob
             if top_prob >= 0.8:
