@@ -53,8 +53,8 @@ data/feedback.db
 artifacts/archives/
 artifacts/tmp/
 artifacts/cache/
-models/
-!models/.gitkeep
+/models/
+!/models/.gitkeep
 
 # Model weight & serialized artifact files
 *.ckpt
