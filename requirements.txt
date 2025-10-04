@@ -4,6 +4,7 @@ uvicorn[standard]==0.31.1
 pydantic==2.8.2
 scikit-learn==1.5.1
 transformers==4.53.2
+safetensors==0.4.5
 sentence-transformers==2.7.0
 pandas==2.2.2
 numpy==1.26.4

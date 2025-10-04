@@ -2,6 +2,8 @@ docker compose up --build
 
 # News Topic Intelligence Service
 
+> 📽️ **Demo Video:** [Watch the end-to-end product walk-through](./DEMO_VIDEO)
+
 > Production-ready FastAPI platform for newsroom classification & summarization with an automated review loop and reproducible ML workflow.
 
 ## ⚡ Spotlight: What I Delivered

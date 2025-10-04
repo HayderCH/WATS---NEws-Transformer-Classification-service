@@ -65,10 +65,7 @@ def call_api(
         if response.status_code == 404 and "/" in trailing_segment:
             hint = " (check base URL/root path)"
         if response.status_code == 401:
-            hint = (
-                " (provide a valid API key in the sidebar"
-                " to authorize calls)"
-            )
+            hint = " (provide a valid API key in the sidebar" " to authorize calls)"
         st.error(
             " ".join(
                 [
@@ -136,9 +133,7 @@ def render_classification_panel(
     categories = result.get("categories", [])
     if categories:
         chart_df = pd.DataFrame(categories)
-        chart_df = chart_df.rename(
-            columns={"name": "Category", "prob": "Probability"}
-        )
+        chart_df = chart_df.rename(columns={"name": "Category", "prob": "Probability"})
         chart_df["Probability"] = chart_df["Probability"].astype(float)
         fig = px.bar(
             chart_df,
@@ -253,9 +248,7 @@ def render_trends_panel(api_base: str, headers: Dict[str, str]) -> None:
     totals = data.get("totals", [])
     if totals:
         totals_df = pd.DataFrame(totals)
-        totals_df = totals_df.rename(
-            columns={"label": "Topic", "count": "Total"}
-        )
+        totals_df = totals_df.rename(columns={"label": "Topic", "count": "Total"})
         fig_totals = px.bar(
             totals_df,
             x="Topic",
@@ -293,9 +286,7 @@ def render_review_panel(api_base: str, headers: Dict[str, str]) -> None:
         for family in sorted(grouped):
             members = sorted(grouped[family])
             family_title = _pretty_label(family)
-            with st.expander(
-                f"{family_title} ({len(members)})", expanded=False
-            ):
+            with st.expander(f"{family_title} ({len(members)})", expanded=False):
                 columns = st.columns(3)
                 for idx, raw_label in enumerate(members):
                     friendly = _pretty_label(raw_label)
@@ -340,9 +331,7 @@ def render_review_panel(api_base: str, headers: Dict[str, str]) -> None:
             top_labels = item.get("top_labels") or []
             if top_labels:
                 top_df = pd.DataFrame(top_labels)
-                top_df = top_df.rename(
-                    columns={"name": "Label", "prob": "Probability"}
-                )
+                top_df = top_df.rename(columns={"name": "Label", "prob": "Probability"})
                 top_df["Probability"] = top_df["Probability"].astype(float)
                 top_view = (
                     top_df.sort_values("Probability", ascending=False)
@@ -363,7 +352,11 @@ def render_review_panel(api_base: str, headers: Dict[str, str]) -> None:
                     texttemplate="%{text:.2f}", textposition="outside"
                 )
                 fig_top.update_layout(margin=dict(t=50, b=10))
-                st.plotly_chart(fig_top, use_container_width=True)
+                st.plotly_chart(
+                    fig_top,
+                    use_container_width=True,
+                    key=f"top-chart-{item['id']}",
+                )
                 st.dataframe(top_view, use_container_width=True)
             default_label = item.get("predicted_label", "")
             with st.form(f"label_form_{item['id']}"):
@@ -390,7 +383,7 @@ def render_review_panel(api_base: str, headers: Dict[str, str]) -> None:
                         )
                         if resp and resp.get("updated"):
                             st.success("Label saved.")
-                            st.experimental_rerun()
+                            st.rerun()
 
 
 def render_metrics_panel(api_base: str, headers: Dict[str, str]) -> None:
@@ -408,9 +401,62 @@ def render_metrics_panel(api_base: str, headers: Dict[str, str]) -> None:
     summary_cols[2].metric("Labels", data.get("label_count", 0))
     summary_cols[3].metric("Feedback Entries", data.get("feedback_total", 0))
 
-    if "latency_ms" in data and data["latency_ms"]:
+    latency_payload = data.get("latency_ms") or {}
+    if latency_payload:
         st.write("### Latency (ms)")
-        st.json(data["latency_ms"])
+        latency_rows: list[dict[str, Any]] = []
+        for route, stats in latency_payload.items():
+            row = {
+                "Route": route,
+                "Count": int(stats.get("count", 0)),
+                "Avg": float(stats.get("avg_ms", 0.0)),
+                "p50": float(stats.get("p50_ms", 0.0)),
+                "p95": float(stats.get("p95_ms", 0.0)),
+            }
+            recent = stats.get("recent") or {}
+            if recent:
+                row["Recent p95"] = float(recent.get("p95_ms", 0.0))
+                row["Recent window"] = int(recent.get("window", 0))
+            latency_rows.append(row)
+        if latency_rows:
+            latency_df = pd.DataFrame(latency_rows)
+            latency_df = latency_df.sort_values("Avg", ascending=False)
+            st.dataframe(latency_df, use_container_width=True)
+            fig_latency = px.bar(
+                latency_df,
+                x="Route",
+                y=["Avg", "p95"],
+                title="Average vs p95 latency",
+                barmode="group",
+            )
+            fig_latency.update_layout(margin=dict(t=60, b=40))
+            st.plotly_chart(fig_latency, use_container_width=True)
+
+    counters_payload = data.get("request_counters") or {}
+    if counters_payload:
+        st.write("### Request counters")
+        counter_rows: list[dict[str, Any]] = []
+        for key, value in counters_payload.items():
+            route, _, status = key.partition(":")
+            counter_rows.append(
+                {
+                    "Route": route,
+                    "Status": status or "?",
+                    "Count": int(value),
+                }
+            )
+        counter_df = pd.DataFrame(counter_rows)
+        counter_df = counter_df.sort_values("Count", ascending=False)
+        st.dataframe(counter_df, use_container_width=True)
+        fig_counters = px.bar(
+            counter_df,
+            x="Route",
+            y="Count",
+            color="Status",
+            title="Request volume by route/status",
+        )
+        fig_counters.update_layout(margin=dict(t=60, b=40))
+        st.plotly_chart(fig_counters, use_container_width=True)
 
     st.write("### Raw Metrics Payload")
     st.json(data)
