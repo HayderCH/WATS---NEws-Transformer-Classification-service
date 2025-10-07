@@ -1,0 +1,5 @@
+outs:
+- md5: bcd4791916daeac3fa5dc76786dd8bd5
+  size: 87295572
+  hash: md5
+  path: News_Category_Dataset_v3.json
