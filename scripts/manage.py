@@ -13,6 +13,7 @@ from typing import Optional
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import typer
+import optuna
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -161,6 +162,21 @@ def eval_transformer_cmd(
         seed=seed,
         limit=limit,
     )
+
+
+@app.command("tune")
+def tune_cmd(
+    n_trials: int = typer.Option(100, help="Number of Optuna trials."),
+) -> None:
+    """Run hyperparameter tuning with Optuna (example objective)."""
+
+    def objective(trial):
+        x = trial.suggest_float('x', -10, 10)
+        return (x - 2) ** 2
+
+    study = optuna.create_study()
+    study.optimize(objective, n_trials=n_trials)
+    typer.echo(f"Best value: {study.best_value} (params: {study.best_params})")
 
 
 @app.command("active-finetune")

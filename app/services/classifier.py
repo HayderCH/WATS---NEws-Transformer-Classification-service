@@ -144,6 +144,36 @@ class _ClassifierHolder:
                 }
             else:
                 self.label_names = {i: str(i) for i in range(config.num_labels)}
+        elif self.backend == "ensemble":
+            # Load sklearn
+            if self.model is None:
+                model_dir = Path(_settings.model_dir) / "classifier"
+                self.vectorizer = joblib.load(model_dir / "tfidf_vectorizer.pkl")
+                self.model = joblib.load(model_dir / "logreg.pkl")
+                meta = joblib.load(model_dir / "label_meta.pkl")
+                self.classes = meta["classes_"]
+            # Load transformer
+            if self.tr_model is None:
+                tdir = Path(_settings.transformer_model_dir) / "best"
+                if not tdir.exists():
+                    raise ValueError("Transformer model not found for ensemble")
+                self.tr_tokenizer = AutoTokenizer.from_pretrained(
+                    str(tdir),
+                    local_files_only=True,
+                )  # nosec B615
+                model = AutoModelForSequenceClassification.from_pretrained(
+                    str(tdir),
+                    local_files_only=True,
+                )  # nosec B615
+                self.tr_model = model.to(self.device)
+                self.tr_model.eval()
+                config = self.tr_model.config
+                if hasattr(config, "id2label") and config.id2label:
+                    self.label_names = {
+                        int(key): str(value) for key, value in config.id2label.items()
+                    }
+                else:
+                    self.label_names = {i: str(i) for i in range(config.num_labels)}
 
     def _stub_predict(self, text: str) -> tuple[list[Dict[str, Any]], int]:
         lower = text.lower()
@@ -216,6 +246,41 @@ class _ClassifierHolder:
                 # Softmax in float32 for stability and NumPy compatibility
                 probs_t = torch.softmax(logits.float(), dim=-1)[0]
                 probs = probs_t.detach().to(torch.float32).cpu().numpy()
+            top_idx = int(probs.argmax())
+            categories = [
+                {
+                    "name": self.label_names.get(i, str(i)),
+                    "prob": float(probs[i]),
+                }
+                for i in range(len(probs))
+            ]
+        elif self.backend == "ensemble":
+            # Get sklearn probs
+            vec = self.vectorizer.transform([clean])
+            sklearn_probs = self.model.predict_proba(vec)[0]
+            # Get transformer probs
+            enc = self.tr_tokenizer(
+                clean,
+                truncation=True,
+                max_length=256,
+                return_tensors="pt",
+            ).to(self.device)
+            with torch.inference_mode():
+                if self.device.type == "cuda":
+                    try:
+                        with autocast(
+                            dtype=(torch.bfloat16 if self.use_bf16 else torch.float16)
+                        ):
+                            logits = self.tr_model(**enc).logits
+                    except TypeError:
+                        with autocast():
+                            logits = self.tr_model(**enc).logits
+                else:
+                    logits = self.tr_model(**enc).logits
+                tr_probs = torch.softmax(logits.float(), dim=-1)[0]
+                tr_probs = tr_probs.detach().to(torch.float32).cpu().numpy()
+            # Average probs
+            probs = (sklearn_probs + tr_probs) / 2
             top_idx = int(probs.argmax())
             categories = [
                 {
