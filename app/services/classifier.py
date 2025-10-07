@@ -352,7 +352,12 @@ class _ClassifierHolder:
 _classifier_holder = _ClassifierHolder()
 
 
-def classify_text(text: str) -> Dict[str, Any]:
+def classify_text(text: str, backend: str = None) -> Dict[str, Any]:
+    if backend and backend != _classifier_holder.backend:
+        # Create temporary classifier with specified backend
+        temp_classifier = _ClassifierHolder()
+        temp_classifier.backend = backend
+        return temp_classifier.predict(text)
     return _classifier_holder.predict(text)
 
 

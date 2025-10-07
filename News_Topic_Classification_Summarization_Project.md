@@ -89,12 +89,13 @@ HuffPost dataset does NOT include human summaries. Strategies:
           +-------------------+
 Request → |  FastAPI Service  | → Classification Model (loaded)
           |   /classify_news  | → Summarizer (BART / DistilBART)
+          |   /ab_test        | → A/B Testing Service
           |   /summarize      | → Embeddings (optional)
           |   /trends         |
           +---------+---------+
                     |
                     v
-             PostgreSQL (articles, predictions, logs, trends)
+             PostgreSQL (articles, predictions, logs, trends, experiments)
                     |
                     v
                 MLflow (runs: clf_v1, clf_finetune_v2, summarizer baseline)
@@ -508,7 +509,7 @@ Momentum beats perfection—ship baseline early.
 | Add Caching         | Cache summaries by content hash                   |
 | Embedding Index     | For similar article retrieval                     |
 | Multi-Label Support | Allow dual-topic output for ambiguous articles    |
-| Active Learning     | Flag low-confidence predictions for review        |
+| SHAP Explanations   | Add model interpretability with SHAP values       |
 | Semantic Trends     | Track emerging topics via clustering new articles |
 | Bias Audit          | Category frequency vs expected distribution       |
 
@@ -591,10 +592,13 @@ You’re set. Start with AG News baseline today, then scale to HuffPost for dept
 
 ## 28. Completion Snapshot — October 2025
 
-- ✅ **Roadmap delivered.** FastAPI service, transformer classifier, summarizer, trends analytics, Streamlit UI, and Docker tooling ship together and pass the automated suites.
+- ✅ **v1.0-v5.0 Roadmap delivered.** Complete ML Ops pipeline from baseline models to A/B testing infrastructure.
+- ✅ **v4.0 ML Ops completed.** BentoML serving, Evidently drift detection, GitHub Actions CI/CD, and automated retraining pipeline fully implemented.
+- ✅ **v5.0 A/B Testing completed.** Traffic splitting infrastructure, hash-based user assignment, real-time metrics tracking, and automated winner determination fully implemented.
+- ✅ **Production-ready deployment.** Kubernetes manifests, health checks, and containerized deployment with drift-triggered model updates.
 - ✅ **CLI regression fixed.** Typer 0.12.3 is paired with Click 8.1.7 (pinned in `requirements.txt` and installed in the project venv) so `seed-db`, `bundle-artifacts`, and transformer training commands succeed under pytest.
 - ✅ **Ops artifacts archived.** Latest transformer training run (3 epochs, batch sizes 16/32) is logged to MLflow; artifacts are ready for bundling and deployment.
 - ✅ **Active learning uplift.** Review queue labels surface in the dashboard and power the new `active-finetune` CLI pathway to refresh the transformer with human feedback.
-- 🔄 **Optional next moves.** Explore the Week 2+ backlog (bias detection, clustering, active learning) or refresh the dashboard with new metrics when fresh data lands.
+- 🔄 **Optional next moves.** Explore advanced monitoring, SHAP explanations, or multi-model serving architectures.
 
-Project status: MVP closed, environment stable, and ready for maintenance or new R&D initiatives.
+**Project status: Full ML Ops pipeline complete with A/B testing, production-ready with automated monitoring, retraining, and safe model rollouts.**

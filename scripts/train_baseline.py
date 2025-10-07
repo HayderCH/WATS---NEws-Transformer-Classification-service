@@ -40,15 +40,18 @@ def load_ag_news(limit: int | None = None):
 
 def load_huffpost(limit: int | None = None):
     import json
+
     texts = []
     labels = []
     label_to_idx = {}
     idx = 0
-    with open("data/raw/huffpost/News_Category_Dataset_v3.json", "r", encoding="utf-8") as f:
+    with open(
+        "data/raw/huffpost/News_Category_Dataset_v3.json", "r", encoding="utf-8"
+    ) as f:
         for line in f:
             row = json.loads(line)
             text = f"{row['headline']}. {row['short_description']}"
-            label = row['category']
+            label = row["category"]
             if label not in label_to_idx:
                 label_to_idx[label] = idx
                 idx += 1

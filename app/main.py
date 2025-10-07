@@ -10,6 +10,7 @@ from app.api.routes.labels import router as labels_router
 from app.api.routes.feedback import router as feedback_router
 from app.api.routes.review import router as review_router
 from app.api.routes.trends import router as trends_router
+from app.api.routes.ab_test import router as ab_test_router
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -28,6 +29,7 @@ app.include_router(labels_router)
 app.include_router(feedback_router)
 app.include_router(review_router)
 app.include_router(trends_router)
+app.include_router(ab_test_router)
 
 
 @app.get("/")
@@ -50,5 +52,9 @@ def root():
             "/review/stats",
             "/export/dataset",
             "/trends",
+            "/ab_test",
+            "/ab_test/results/{experiment_name}",
+            "/ab_test/complete/{experiment_name}",
+            "/ab_test/active",
         ],
     }

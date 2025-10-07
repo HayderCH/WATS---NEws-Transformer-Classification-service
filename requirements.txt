@@ -29,3 +29,5 @@ streamlit==1.39.0
 plotly==5.24.1
 dvc==3.63.0
 optuna==4.5.0
+bentoml==1.4.25
+evidently==0.7.14

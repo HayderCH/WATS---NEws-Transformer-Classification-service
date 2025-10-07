@@ -10,6 +10,7 @@ docker compose up --build
 
 - **Hardened the public API** with API-key enforcement, structured logging, latency metrics, and configurable JSON output so analysts and ops teams can trust every response.
 - **Built an active learning safety net** that funnels low-confidence predictions into a review queue and promotes human-label feedback back into the training pipeline.
+- **Implemented A/B testing infrastructure** for safe model rollouts, comparing ensemble vs transformer performance with traffic splitting, consistent user assignment, and automated winner determination.
 - **Automated the model lifecycle** through a Typer CLI that seeds demo data, trains TF-IDF and transformer models, evaluates them, and packages artifacts for S3-compatible storage.
 - **Stood up a Streamlit command center** showcasing classifier, summarizer, and live trends—perfect for stakeholder demos and recruiter-ready screenshots.
 - **Locked down the supply chain** by upgrading vulnerable dependencies and wiring CI to run Ruff, pytest, Bandit, and pip-audit on every push.
@@ -32,6 +33,10 @@ Every request receives an `x-request-id`, metrics are exposed at `/metrics`, and
 
 Dependency upgrades removed historical CVEs, GitHub Actions enforces lint + tests + security scans, and `.env.example` documents every secret toggle (API keys, artifact pushes, MLflow). Recruiters love seeing end-to-end ownership, not just a model notebook.
 
+### A/B Testing for Safe Model Rollouts
+
+Implemented traffic splitting between ensemble and transformer models with hash-based user assignment for consistency. Tracks latency and accuracy metrics per variant, enabling data-driven model selection. Prevents deploying broken models while measuring real-world performance impact.
+
 ## � Architecture Snapshot
 
 ```
@@ -43,7 +48,9 @@ Dependency upgrades removed historical CVEs, GitHub Actions enforces lint + test
    Classifier service    Summarizer service
  (TF-IDF / Transformer)     (DistilBART)
              |                |
-        Model artifacts    Hugging Face Hub
+        A/B Testing Service   Model artifacts
+     (Traffic splitting,       Hugging Face Hub
+      metrics tracking)
              |
         Typer CLI (scripts/manage.py)
      ┌──────────┴───────────┐
@@ -116,7 +123,7 @@ The Streamlit app mirrors real API calls, showcases confidence scores, and surfa
 app/
   api/routes/            # FastAPI routers (classify, summarize, review, metrics, ...)
   core/                  # Config, logging, security, metrics globals
-  services/              # Classifier, summarizer, artifact store, MLflow helpers
+  services/              # Classifier, summarizer, A/B testing, artifact store, MLflow helpers
   db/                    # SQLAlchemy models & session helpers
 scripts/                 # Training, evaluation, artifact management commands
 dashboard/               # Streamlit demo application
@@ -129,6 +136,179 @@ docs/                    # Deployment + runbook guidance
 - Bias and drift analysis for the review queue.
 - Scheduled retraining with GitHub Actions + artifact promotion.
 - Container image hardening and SBOM generation.
+
+## 🗺️ **Complete Project Roadmap**
+
+| Version  | Phase                          | Status           | Key Deliverables                                                                                                                                                                                         |
+| -------- | ------------------------------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **v1.0** | Baseline ML                    | ✅ Completed     | • TF-IDF + Logistic Regression classifier<br>• AG News dataset (4 categories)<br>• Basic model training pipeline<br>• Initial evaluation metrics                                                         |
+| **v2.0** | FastAPI Service                | ✅ Completed     | • RESTful API with `/classify_news`<br>• API key authentication<br>• Request/response logging<br>• Basic error handling<br>• Uvicorn deployment                                                          |
+| **v3.0** | Ensemble + Tuning              | ✅ Completed     | • Ensemble classifier (sklearn + transformer)<br>• HuffPost dataset (42 categories)<br>• Active learning review queue<br>• Model fine-tuning pipeline<br>• Streamlit dashboard<br>• Database integration |
+| **v4.0** | ML Ops Deployment & Monitoring | ✅ **COMPLETED** | • **BentoML production serving**<br>• **Evidently drift detection**<br>• **GitHub Actions CI/CD**<br>• **Automated retraining pipeline**<br>• **Kubernetes deployment**<br>• **Production monitoring**   |
+| **v5.0** | A/B Testing & Model Comparison | ✅ **COMPLETED** | • **Traffic splitting infrastructure**<br>• **Hash-based user assignment**<br>• **Real-time metrics tracking**<br>• **Automated winner determination**<br>• **Production-safe model rollouts**           |
+
+## 🎯 v4.0: ML Ops Deployment & Monitoring ✅ COMPLETED
+
+**Status: ✅ Production-Ready with Automated Retraining**
+
+### What Was Delivered
+
+- **BentoML Model Serving**: Production-grade model deployment with ensemble/sklearn/transformer backends, automatic drift detection, and confidence scoring.
+- **Evidently Drift Detection**: Real-time data drift monitoring that triggers retraining when distribution shifts exceed thresholds.
+- **GitHub Actions CI/CD**: Automated pipeline for drift detection, model retraining, testing, and deployment with artifact promotion.
+- **Kubernetes Deployment**: Containerized deployment with health checks, resource limits, and service discovery.
+
+### Key Features
+
+#### BentoML Service (`scripts/serve.py`)
+
+```python
+# Ensemble classification with drift monitoring
+response = service.classify(ClassificationRequest(
+    text="Apple announces new iPhone",
+    backend="ensemble"
+))
+# Returns: category, confidence, drift_detected, drift_report
+```
+
+#### Drift Detection (`scripts/drift_detection.py`)
+
+- Monitors category distribution shifts
+- Triggers retraining when drift_score > 0.5
+- Updates reference dataset automatically
+
+#### CI/CD Pipeline (`.github/workflows/retrain.yml`)
+
+- **Triggers**: Manual, scheduled (weekly), or drift detection
+- **Jobs**: Check drift → Retrain models → Test → Deploy
+- **Artifacts**: Model bundles with timestamps
+
+#### Deployment (`scripts/deploy.sh`)
+
+- Docker image building and Kubernetes deployment
+- Health checks and resource management
+- Staging → Production promotion
+
+### Quick Start v4.0
+
+1. **Test BentoML Service**:
+
+```bash
+python test_service_drift.py
+```
+
+2. **Run Drift Detection**:
+
+```bash
+python scripts/drift_detection.py
+```
+
+3. **Deploy to Production**:
+
+```bash
+./scripts/deploy.sh
+```
+
+4. **Monitor CI/CD**: Push to main or trigger manual workflow
+
+### Architecture v4.0
+
+```
+Production Traffic
+       ↓
+   BentoML Service (Drift Detection)
+       ↓
+   Drift Detected? → GitHub Actions
+       ↓              (Retrain Pipeline)
+   Serve Response     ↓
+                     Model Retraining
+                     → Artifact Bundle
+                     → Deploy to K8s
+```
+
+## 🎯 v5.0: A/B Testing & Model Comparison ✅ COMPLETED
+
+**Status: ✅ Production-Ready A/B Testing Infrastructure**
+
+### What Was Delivered
+
+- **Traffic Splitting Service**: Hash-based user assignment ensuring consistent variant exposure
+- **Real-time Metrics Tracking**: Latency and accuracy monitoring per model variant
+- **Automated Winner Determination**: Statistical comparison with configurable thresholds
+- **API Integration**: Seamless A/B testing endpoints with experiment management
+
+### Key Features
+
+#### A/B Testing Service (`app/services/ab_testing.py`)
+
+```python
+# Traffic splitting with consistent user assignment
+ab_service = get_ab_testing_service()
+variant = ab_service.assign_variant("ensemble_vs_transformer", user_id)
+result = classify_text(text, backend=variant)
+ab_service.record_result(experiment_name, variant, latency, confidence)
+```
+
+#### FastAPI A/B Endpoints (`app/api/routes/ab_test.py`)
+
+- **POST `/ab_test`**: Automatic variant assignment and classification
+- **GET `/ab_test/results/{experiment}`**: Real-time experiment metrics
+- **POST `/ab_test/complete/{experiment}`**: Winner determination and experiment completion
+
+#### Experiment Management
+
+- **Traffic Split**: Configurable 50/50 or custom ratios
+- **Consistent Assignment**: Hash-based user bucketing prevents result contamination
+- **Metrics Tracking**: Request counts, latency averages, accuracy monitoring
+- **Winner Logic**: Better accuracy wins, latency as tiebreaker
+
+### Quick Start v5.0
+
+1. **Test A/B Classification**:
+
+```bash
+python test_ab_testing.py
+```
+
+2. **Start FastAPI Server**:
+
+```bash
+uvicorn app.main:app --reload --port 8000
+```
+
+3. **Test A/B Endpoint**:
+
+```bash
+curl -X POST "http://localhost:8000/ab_test" \
+  -H "X-API-Key: your-key" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Apple announces new iPhone", "user_id": "user123"}'
+```
+
+4. **View Experiment Results**:
+
+```bash
+curl "http://localhost:8000/ab_test/results/ensemble_vs_transformer" \
+  -H "X-API-Key: your-key"
+```
+
+### Architecture v5.0
+
+```
+User Request
+     ↓
+Traffic Splitter (Hash-based)
+     ↓
+   Control Group ──── Ensemble Model
+     ↓                   ↓
+   Treatment Group ── Transformer Model
+     ↓                   ↓
+  Metrics Collection   Metrics Collection
+     ↓                   ↓
+  Experiment Results   Experiment Results
+     ↓                   ↓
+   Winner Determination
+```
 
 ---
 

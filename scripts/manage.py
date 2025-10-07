@@ -175,7 +175,7 @@ def tune_cmd(
     """Run hyperparameter tuning with Optuna (example objective)."""
 
     def objective(trial):
-        x = trial.suggest_float('x', -10, 10)
+        x = trial.suggest_float("x", -10, 10)
         return (x - 2) ** 2
 
     study = optuna.create_study()
@@ -191,10 +191,7 @@ def active_finetune_cmd(
     ),
     output_dir: Path = typer.Option(
         Path("models/transformer_huffpost"),
-        help=(
-            "Directory where the fine-tuned model checkpoints will be "
-            "stored."
-        ),
+        help=("Directory where the fine-tuned model checkpoints will be " "stored."),
     ),
     min_samples: int = typer.Option(
         50,
