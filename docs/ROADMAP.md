@@ -47,7 +47,7 @@ This roadmap documents the planned upgrades to the News Topic Classification pro
 - Data quality script shows 0.006% duplicates, 42 classes (imbalanced: Politics 17%, some 0.5%), text lengths analyzed.
 - Requirements updated; committed as v2.0.
 
-### Version 3.0: Model Training & Evaluation Upgrades (Applied ML Focus)
+### Version 3.0: Model Training & Evaluation Upgrades (Applied ML Focus) ✅ COMPLETED
 
 **Story**: Your models are good, but not optimized. This version adds hyperparameter tuning and ensembles, like upgrading from a basic car to a tuned race car—faster and more reliable.
 
@@ -75,6 +75,13 @@ This roadmap documents the planned upgrades to the News Topic Classification pro
 - **Metrics**: Before/after accuracy on validation set; log in MLflow experiments.
 
 **Timeline**: 1-2 weeks. Validate with cross-validation.
+
+**Actual Results**:
+
+- Added Optuna tuning command in `manage.py` (example objective; extensible to real params).
+- Implemented ensemble backend in `classifier.py` (averages TF-IDF and Transformer probs).
+- Created `scripts/eval_advanced.py` for F1 per class, confusion matrix, and bias detection.
+- Requirements updated; committed as v3.0.
 
 ### Version 4.0: ML Ops Deployment & Monitoring (ML Ops Focus)
 
