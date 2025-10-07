@@ -27,3 +27,4 @@ requests==2.32.4
 pyarrow==17.0.0
 streamlit==1.39.0
 plotly==5.24.1
+dvc==3.63.0
