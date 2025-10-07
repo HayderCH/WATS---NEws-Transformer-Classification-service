@@ -48,6 +48,7 @@ mlruns/
 
 # Local datasets and caches
 data/raw/
+!data/raw/huffpost/*.dvc
 data/processed/
 data/feedback.db
 artifacts/archives/

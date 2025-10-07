@@ -86,12 +86,16 @@ def train_baseline_cmd(
     ),
     limit: Optional[int] = typer.Option(
         None,
-        help="Limit number of AG News samples (useful for smoke tests).",
+        help="Limit number of samples (useful for smoke tests).",
+    ),
+    dataset: str = typer.Option(
+        "ag_news",
+        help="Dataset to train on: ag_news or huffpost.",
     ),
 ) -> None:
     """Train the classic TF-IDF + logistic regression classifier."""
 
-    macro_f1 = train_baseline(str(output_dir), limit)
+    macro_f1 = train_baseline(str(output_dir), limit, dataset)
     typer.echo(f"Baseline training complete. macro_f1={macro_f1:.4f}")
 
 

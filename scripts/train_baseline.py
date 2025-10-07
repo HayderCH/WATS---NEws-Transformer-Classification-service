@@ -38,7 +38,28 @@ def load_ag_news(limit: int | None = None):
     return texts, labels
 
 
-def train_baseline(output_dir: str, limit: int | None = None):
+def load_huffpost(limit: int | None = None):
+    import json
+    texts = []
+    labels = []
+    label_to_idx = {}
+    idx = 0
+    with open("data/raw/huffpost/News_Category_Dataset_v3.json", "r", encoding="utf-8") as f:
+        for line in f:
+            row = json.loads(line)
+            text = f"{row['headline']}. {row['short_description']}"
+            label = row['category']
+            if label not in label_to_idx:
+                label_to_idx[label] = idx
+                idx += 1
+            texts.append(text)
+            labels.append(label_to_idx[label])
+            if limit and len(texts) >= limit:
+                break
+    return texts, labels
+
+
+def train_baseline(output_dir: str, limit: int | None = None, dataset: str = "ag_news"):
     settings = get_settings()
     tags = {
         "model": "baseline",
@@ -47,7 +68,12 @@ def train_baseline(output_dir: str, limit: int | None = None):
     }
 
     with mlflow_run("baseline", tags=tags) as mlflow_ctx:
-        texts, labels = load_ag_news(limit)
+        if dataset == "ag_news":
+            texts, labels = load_ag_news(limit)
+        elif dataset == "huffpost":
+            texts, labels = load_huffpost(limit)
+        else:
+            raise ValueError(f"Unknown dataset: {dataset}")
         X_train, X_val, y_train, y_val = train_test_split(
             texts, labels, test_size=0.15, random_state=42, stratify=labels
         )
@@ -131,9 +157,15 @@ def parse_args():
         default=None,
         help="Limit training samples for speed",
     )
+    ap.add_argument(
+        "--dataset",
+        default="ag_news",
+        choices=["ag_news", "huffpost"],
+        help="Dataset to train on",
+    )
     return ap.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    train_baseline(args.output_dir, args.limit)
+    train_baseline(args.output_dir, args.limit, args.dataset)

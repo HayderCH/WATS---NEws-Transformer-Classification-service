@@ -10,7 +10,7 @@ class Preprocessor:
 
     def get_model(self):
         if self._model is None:
-            self._model = SentenceTransformer('all-MiniLM-L6-v2')
+            self._model = SentenceTransformer("all-MiniLM-L6-v2")
         return self._model
 
     def basic_clean(self, text: str) -> str:

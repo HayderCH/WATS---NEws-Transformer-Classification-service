@@ -81,6 +81,7 @@ This roadmap documents the planned upgrades to the News Topic Classification pro
 - Added Optuna tuning command in `manage.py` (example objective; extensible to real params).
 - Implemented ensemble backend in `classifier.py` (averages TF-IDF and Transformer probs).
 - Created `scripts/eval_advanced.py` for F1 per class, confusion matrix, and bias detection.
+- Fixed ensemble compatibility by retraining sklearn on HuffPost data (42 classes) to match transformer.
 - Requirements updated; committed as v3.0.
 
 ### Version 4.0: ML Ops Deployment & Monitoring (ML Ops Focus)
@@ -154,6 +155,7 @@ This roadmap documents the planned upgrades to the News Topic Classification pro
 As a passionate data science student, I took a basic FastAPI-based news classifier and transformed it into a scalable, monitored ML system. Starting with unversioned data and fixed models, I implemented DVC for data tracking, ensuring reproducibility. I enhanced preprocessing with Sentence-BERT embeddings, boosting feature richness. Through Optuna hyperparameter tuning and model ensembles, I improved accuracy by 15-20%. For MLOps, I deployed with BentoML for scalable serving and integrated Evidently for drift detection, achieving simulated 99% uptime. Finally, I added SHAP explanations and A/B testing for transparency and validation.
 
 **Key Achievements**:
+
 - **Data Science**: Built end-to-end pipelines with quality checks, embeddings, and advanced evaluation.
 - **MLOps**: Versioned code (Git), data (DVC), models (MLflow); deployed with monitoring and CI/CD.
 - **Impact**: From local script to production API, with measurable improvements in accuracy, latency, and reliability.
