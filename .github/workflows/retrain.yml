@@ -37,7 +37,7 @@ jobs:
           python-version: "3.11"
 
       - name: Cache pip dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
@@ -58,7 +58,7 @@ jobs:
           echo "drift_score=1.0" >> $GITHUB_OUTPUT
 
       - name: Upload drift report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: drift-report
           path: drift_report.txt
@@ -78,7 +78,7 @@ jobs:
           python-version: "3.11"
 
       - name: Cache pip dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
@@ -133,7 +133,7 @@ jobs:
           python scripts/manage.py bundle-artifacts models
 
       - name: Upload new model artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: model-artifacts-${{ github.run_number }}
           path: artifacts/
@@ -149,7 +149,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download model artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: model-artifacts-${{ github.run_number }}
 
