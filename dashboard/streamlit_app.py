@@ -13,6 +13,15 @@ import plotly.express as px
 import requests
 import streamlit as st
 
+# Add image generation imports
+try:
+    import sys
+
+    sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+    IMAGE_GEN_AVAILABLE = True
+except ImportError:
+    IMAGE_GEN_AVAILABLE = False
+
 DEFAULT_API_BASE = os.getenv("NEWS_API_BASE", "http://localhost:8000")
 DEFAULT_API_KEY = os.getenv("NEWS_API_KEY")
 
@@ -462,6 +471,307 @@ def render_metrics_panel(api_base: str, headers: Dict[str, str]) -> None:
     st.json(data)
 
 
+def render_image_generation_panel(
+    api_base: str,
+    headers: Dict[str, str],
+) -> None:
+    """Render the AI image generation panel for news articles."""
+    st.subheader("🎨 AI Image Generation")
+    st.caption("Generate professional images for news articles using RTX 4060 GPU")
+
+    if not IMAGE_GEN_AVAILABLE:
+        st.error(
+            "❌ Image generation service not available. Please ensure RTX 4060 setup is complete."
+        )
+        st.info("Run `python test_rtx_generation.py` to verify your setup.")
+        return
+
+    # Check service status
+    status_result = call_api("get", "/images/status", api_base, headers)
+    if status_result:
+        gpu_status = (
+            "✅ RTX 4060 Ready"
+            if status_result.get("gpu_available")
+            else "❌ GPU Not Available"
+        )
+        st.success(f"Service Status: {gpu_status}")
+        if status_result.get("gpu_available"):
+            vram = status_result.get("vram_gb", 0)
+            st.info(
+                f"GPU Memory: {vram:.1f}GB | Typical Generation: "
+                f"{status_result.get('typical_generation_time', '3-5s')}"
+            )
+    else:
+        st.warning(
+            "⚠️ Image service not responding. Make sure your FastAPI server "
+            "includes image routes."
+        )
+
+    # Generation mode selection
+    mode = st.radio(
+        "Generation Mode",
+        [
+            "📰 Automatic (Article-based)",
+            "✏️ Assisted (Prompt Refinement)",
+            "🎯 Manual (Full Control)",
+        ],
+        help="Choose how you want to generate images",
+    )
+
+    if mode == "📰 Automatic (Article-based)":
+        render_automatic_generation(api_base, headers)
+    elif mode == "✏️ Assisted (Prompt Refinement)":
+        render_assisted_generation(api_base, headers)
+    else:  # Manual
+        render_manual_generation(api_base, headers)
+
+
+def render_automatic_generation(api_base: str, headers: Dict[str, str]) -> None:
+    """Automatic image generation based on article content."""
+    st.subheader("📰 Automatic Image Generation")
+
+    with st.form("auto_image_form"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            title = st.text_input(
+                "Article Title",
+                "Tesla Unveils Revolutionary Electric Vehicle Technology",
+                help="The headline of the news article",
+            )
+
+        with col2:
+            _ = st.text_input(
+                "Article URL (Optional)", "", help="Source URL for reference"
+            )
+
+        summary = st.text_area(
+            "Article Summary/Content",
+            "Tesla CEO Elon Musk announced breakthrough advancements in autonomous driving technology during the AI Safety Summit. The new Full Self-Driving (FSD) system demonstrates unprecedented safety improvements and handles complex urban environments with human-like decision making.",
+            height=120,
+            help="Key points from the article (used for prompt generation)",
+        )
+
+        _ = st.multiselect(
+            "Visual Style",
+            [
+                "Professional",
+                "Editorial",
+                "News Magazine",
+                "Technology Focus",
+                "Corporate",
+            ],
+            default=["Professional"],
+            help="Choose visual themes for the generated image",
+        )
+
+        submitted = st.form_submit_button("🎨 Generate Image", use_container_width=True)
+
+    if submitted and title.strip():
+        with st.spinner("🎨 Generating image with RTX 4060... (3-5 seconds)"):
+            # Prepare payload
+            payload = {
+                "title": title.strip(),
+                "summary": summary.strip() if summary.strip() else None,
+            }
+
+            result = call_api(
+                "post", "/images/generate-news-image", api_base, headers, json=payload
+            )
+
+            if result and result.get("success"):
+                st.success("✅ Image generated successfully!")
+                st.info(f"💾 Saved to: {result.get('image_path', 'Unknown')}")
+
+                # Try to display the image
+                image_path = result.get("image_path")
+                if image_path and os.path.exists(image_path):
+                    st.image(
+                        image_path,
+                        caption=f"Generated image for: {title}",
+                        use_column_width=True,
+                    )
+                else:
+                    st.info(
+                        "📸 Image generated but preview not available in dashboard. Check the generated_images folder."
+                    )
+
+                # Show generation details
+                with st.expander("📊 Generation Details", expanded=False):
+                    st.json(result)
+
+            else:
+                st.error("❌ Failed to generate image. Check the service logs.")
+    elif submitted:
+        st.warning("⚠️ Please provide at least an article title.")
+
+
+def render_assisted_generation(api_base: str, headers: Dict[str, str]) -> None:
+    """Assisted generation with prompt suggestions and refinement."""
+    st.subheader("✏️ Assisted Image Generation")
+
+    with st.form("assisted_image_form"):
+        title = st.text_input("Article Title", "Apple Announces New AI Features")
+        summary = st.text_area(
+            "Article Summary", "Apple unveiled advanced AI capabilities..."
+        )
+
+        # Generate prompt suggestions
+        if st.form_submit_button("💡 Generate Prompt Suggestions"):
+            if title.strip():
+                suggestions = generate_prompt_suggestions(title, summary)
+                st.session_state.prompt_suggestions = suggestions
+                st.rerun()
+            else:
+                st.warning("Please enter an article title first.")
+
+    # Show prompt suggestions if available
+    if "prompt_suggestions" in st.session_state:
+        st.subheader("💡 Suggested Prompts")
+
+        selected_prompt = st.radio(
+            "Choose a prompt to use:", st.session_state.prompt_suggestions, index=0
+        )
+
+        # Allow editing
+        edited_prompt = st.text_area(
+            "Edit Prompt (Optional)", selected_prompt, height=80
+        )
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            width = st.selectbox("Width", [512, 768, 1024], index=0)
+        with col2:
+            height = st.selectbox("Height", [512, 768, 1024], index=0)
+        with col3:
+            steps = st.slider("Quality Steps", 15, 50, 25)
+
+        if st.button("🎨 Generate with Selected Prompt", use_container_width=True):
+            with st.spinner(f"🎨 Generating on RTX 4060... (~{3 + steps//10}s)"):
+                payload = {
+                    "prompt": edited_prompt,
+                    "width": width,
+                    "height": height,
+                    "steps": steps,
+                }
+
+                result = call_api(
+                    "post", "/images/generate-image", api_base, headers, json=payload
+                )
+
+                if result and result.get("success"):
+                    st.success("✅ Image generated!")
+                    image_path = result.get("image_path")
+                    if image_path and os.path.exists(image_path):
+                        st.image(
+                            image_path, caption="Generated Image", use_column_width=True
+                        )
+                else:
+                    st.error("❌ Generation failed")
+
+
+def render_manual_generation(api_base: str, headers: Dict[str, str]) -> None:
+    """Manual prompt-based image generation."""
+    st.subheader("🎯 Manual Image Generation")
+
+    with st.form("manual_image_form"):
+        prompt = st.text_area(
+            "Prompt",
+            "A professional news photograph of a CEO announcing new technology, modern office background, high quality",
+            height=100,
+        )
+
+        negative_prompt = st.text_area(
+            "Negative Prompt (Optional)",
+            "blurry, low quality, deformed, ugly, cartoon, anime",
+            height=60,
+        )
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            width = st.selectbox("Width", [512, 768, 1024], index=0)
+        with col2:
+            height = st.selectbox("Height", [512, 768, 1024], index=0)
+        with col3:
+            guidance = st.slider("Guidance Scale", 1.0, 20.0, 7.5, 0.5)
+
+        steps = st.slider("Steps", 10, 100, 25)
+        _ = st.selectbox("Sampler", ["Euler a", "DPM++ 2M Karras", "DDIM"], index=0)
+
+        submitted = st.form_submit_button("🎨 Generate Image", use_container_width=True)
+
+    if submitted and prompt.strip():
+        with st.spinner(f"🎨 Generating on RTX 4060... (~{3 + steps//10}s)"):
+            payload = {
+                "prompt": prompt.strip(),
+                "negative_prompt": (
+                    negative_prompt.strip() if negative_prompt.strip() else None
+                ),
+                "width": width,
+                "height": height,
+                "steps": steps,
+                "guidance_scale": guidance,
+            }
+
+            result = call_api(
+                "post", "/images/generate-image", api_base, headers, json=payload
+            )
+
+            if result and result.get("success"):
+                st.success("✅ Image generated successfully!")
+                image_path = result.get("image_path")
+                if image_path and os.path.exists(image_path):
+                    st.image(
+                        image_path,
+                        caption=f"Generated: {prompt[:50]}...",
+                        use_column_width=True,
+                    )
+
+                    # Download button
+                    with open(image_path, "rb") as file:
+                        st.download_button(
+                            label="📥 Download Image",
+                            data=file,
+                            file_name=os.path.basename(image_path),
+                            mime="image/png",
+                        )
+                else:
+                    st.info("Image generated but preview not available.")
+            else:
+                st.error("❌ Image generation failed.")
+    elif submitted:
+        st.warning("Please provide a prompt.")
+
+
+def generate_prompt_suggestions(title: str, summary: str = "") -> list[str]:
+    """Generate prompt suggestions based on article content."""
+    base_suggestions = [
+        f"Professional editorial illustration of: {title}, news magazine style, high quality",
+        f"Modern news photograph representing: {title}, journalistic, detailed",
+        f"Corporate presentation slide about: {title}, business professional, clean design",
+    ]
+
+    if summary:
+        # Add context-aware suggestions
+        if any(
+            word in summary.lower()
+            for word in ["technology", "ai", "digital", "software"]
+        ):
+            base_suggestions.append(
+                f"Technology themed illustration: {title}, futuristic, digital art"
+            )
+        if any(word in summary.lower() for word in ["business", "economy", "market"]):
+            base_suggestions.append(
+                f"Business concept visualization: {title}, corporate, professional"
+            )
+        if any(word in summary.lower() for word in ["politics", "government"]):
+            base_suggestions.append(
+                f"Political news illustration: {title}, serious, documentary style"
+            )
+
+    return base_suggestions
+
+
 def main() -> None:
     st.set_page_config(
         page_title="News Intelligence Dashboard",
@@ -489,7 +799,7 @@ def main() -> None:
 
     headers = _make_headers(api_key.strip() or None, header_name.strip())
 
-    tabs = st.tabs(["Classify", "Summarize", "Trends", "Review", "Metrics"])
+    tabs = st.tabs(["Classify", "Summarize", "Trends", "Review", "Metrics", "Images"])
 
     with tabs[0]:
         render_classification_panel(api_base, headers)
@@ -501,6 +811,8 @@ def main() -> None:
         render_review_panel(api_base, headers)
     with tabs[4]:
         render_metrics_panel(api_base, headers)
+    with tabs[5]:
+        render_image_generation_panel(api_base, headers)
 
 
 if __name__ == "__main__":

@@ -310,8 +310,77 @@ Traffic Splitter (Hash-based)
    Winner Determination
 ```
 
----
+## 🎯 **PFE Internship Preparation Guide**
 
-Have questions or want a live walk-through? Open an issue or reach out—happy to demo how each decision keeps the pipeline production-ready.
+### Your Project Demonstrates These Key Engineering Skills:
 
-- **API keys** – Set `API_KEY` or `API_KEYS` to lock down batch classification, review mutations, feedback ingestion, dataset export, and `/metrics/reset`.
+**1. Full-Stack Development**
+
+- Modern FastAPI backend with async processing
+- RESTful API design with proper error handling
+- Database integration with SQLAlchemy and Alembic migrations
+
+**2. Machine Learning Engineering**
+
+- End-to-end ML pipeline from data to production
+- Model training, evaluation, and deployment
+- A/B testing for model comparison and safe rollouts
+
+**3. DevOps & Automation**
+
+- CI/CD pipeline with automated testing and deployment
+- Containerization with Docker and docker-compose
+- Automated model retraining and artifact management
+
+**4. Production-Ready Architecture**
+
+- Service-oriented architecture with dependency injection
+- Comprehensive testing (unit, integration, end-to-end)
+- Monitoring, logging, and security best practices
+
+### PFE Interview Talking Points:
+
+**"Décrivez votre projet de PFE" (Describe your PFE project)**
+
+> "J'ai développé un service complet de classification d'articles de presse utilisant l'intelligence artificielle. Le système comprend un pipeline ML automatisé, des tests A/B pour la comparaison de modèles, et un déploiement en production avec monitoring continu."
+
+**"Quelles technologies avez-vous utilisées?" (What technologies did you use?)**
+
+> "J'ai utilisé FastAPI pour l'API REST, scikit-learn et transformers pour les modèles ML, PostgreSQL pour la base de données, et Docker pour la containerisation. Le projet inclut également des tests automatisés et un pipeline CI/CD."
+
+**"Comment avez-vous géré la complexité?" (How did you handle complexity?)**
+
+> "J'ai structuré le projet en couches (services, API, base de données) avec une architecture modulaire. J'ai implémenté des tests A/B pour valider les performances des modèles en production, et ajouté un système de monitoring pour suivre les métriques en temps réel."
+
+**"Quels défis avez-vous rencontrés?" (What challenges did you face?)**
+
+> "Le défi principal était d'intégrer les tests A/B avec le système de classification existant. J'ai dû modifier le service de classification pour supporter plusieurs backends de modèles tout en maintenant la cohérence des assignations utilisateurs via un système de hachage."
+
+### Technical Skills Demonstrated:
+
+- **Python & FastAPI**: Modern web development with async/await
+- **Machine Learning**: Model training, evaluation, A/B testing
+- **Database Design**: SQLAlchemy ORM, migrations, data modeling
+- **DevOps**: Docker, CI/CD, automated testing, monitoring
+- **Software Architecture**: Service layer, dependency injection, clean code
+- **Testing**: Unit tests, integration tests, end-to-end testing
+
+### Your Competitive Advantages for Tunisian PFE:
+
+✅ **Complete Project**: From concept to production deployment
+✅ **Modern Technologies**: FastAPI, transformers, Docker (industry standards)
+✅ **Production Mindset**: Monitoring, testing, security, scalability
+✅ **Documentation**: Comprehensive README, API docs, architecture diagrams
+✅ **Real-World Application**: News classification with business impact
+
+### PFE Evaluation Criteria Alignment:
+
+**Technical Excellence (40%)**: Advanced ML implementation, clean architecture
+**Innovation (20%)**: A/B testing, automated pipelines, modern tech stack
+**Documentation (15%)**: Detailed README, code comments, architecture docs
+**Presentation (15%)**: Clear explanations, demo capabilities
+**Autonomy (10%)**: Independent project execution from start to finish
+
+**Remember**: Tunisian PFE evaluators look for practical engineering skills, project completeness, and the ability to explain technical decisions. Your project demonstrates all of these!
+
+**Pro Tip**: Prepare a 10-minute demo showing the API working, A/B testing in action, and the automated pipeline. Focus on explaining _why_ you made each architectural decision! 🚀

@@ -84,6 +84,16 @@ artifacts/**/*.7z
 **/checkpoints/
 **/runs/
 
+# Generated images and media files
+generated_images/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.svg
+*.ico
+
 # OS metadata
 .DS_Store
 Thumbs.db
