@@ -29,6 +29,7 @@ from scripts.train_transformer import (  # noqa: E402
 from scripts.train_transformer_huffpost import (  # noqa: E402
     train_huffpost_transformer,
 )
+from scripts.train_forecasting import main as train_forecasting_main  # noqa: E402
 from scripts.eval_transformer import evaluate  # noqa: E402
 from app.services import create_artifact_publisher  # noqa: E402
 from app.services.active_learning import (  # noqa: E402
@@ -89,7 +90,7 @@ def train_baseline_cmd(
         help="Limit number of samples (useful for smoke tests).",
     ),
     dataset: str = typer.Option(
-        "ag_news",
+        "huffpost",
         help="Dataset to train on: ag_news or huffpost.",
     ),
 ) -> None:
@@ -287,6 +288,43 @@ def active_finetune_cmd(
 
     summary = ", ".join(f"{k}={v:.4f}" for k, v in results.items())
     typer.echo(f"Active learning fine-tune complete. {summary}")
+
+
+@app.command("train-forecasting")
+def train_forecasting_cmd(
+    output_dir: str = typer.Option(
+        "models/forecasting", help="Directory to save trained forecasting models"
+    ),
+    experiment_name: str = typer.Option(
+        "news_trends_forecasting", help="MLflow experiment name"
+    ),
+    max_categories: int = typer.Option(
+        10, help="Maximum number of top categories to train models for"
+    ),
+) -> None:
+    """Train time series forecasting models for news category trends.
+
+    Trains hybrid ML/DL models (Prophet, XGBoost, LSTM) for forecasting
+    future news article trends by category using historical data.
+    """
+    # Set up sys.argv for the training script
+    import sys
+
+    original_argv = sys.argv[:]
+    sys.argv = [
+        "train_forecasting.py",
+        "--output-dir",
+        output_dir,
+        "--experiment-name",
+        experiment_name,
+        "--max-categories",
+        str(max_categories),
+    ]
+
+    try:
+        train_forecasting_main()
+    finally:
+        sys.argv = original_argv
 
 
 def _resolve_sources(raw: str, project_root: Path, settings) -> list[Path]:

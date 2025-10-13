@@ -67,7 +67,7 @@ def summarize_text(text: str, max_len: int = None, min_len: int = None):
         latency_ms = (time.time() - t0) * 1000.0
         return {
             "summary": summary,
-            "model_version": _settings.summarizer_version,
+            "summarizer_version": _settings.summarizer_version,
             "latency_ms": latency_ms,
             "cached": True,
         }
@@ -98,7 +98,7 @@ def summarize_text(text: str, max_len: int = None, min_len: int = None):
     _cache[key] = (summary, latency_ms)
     return {
         "summary": summary,
-        "model_version": _settings.summarizer_version,
+        "summarizer_version": _settings.summarizer_version,
         "latency_ms": latency_ms,
         "cached": False,
     }

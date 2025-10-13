@@ -12,6 +12,7 @@ class Settings(BaseModel):
     model_config = {"protected_namespaces": ()}
 
     app_name: str = os.getenv("APP_NAME", "news-topic-intel")
+    port: int = int(os.getenv("PORT", "8001"))
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     model_dir: str = os.getenv("MODEL_DIR", "models")
     classifier_backend: str = Field(

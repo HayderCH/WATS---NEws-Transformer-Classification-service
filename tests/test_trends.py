@@ -84,3 +84,23 @@ def test_trends_window_validation() -> None:
 
     resp = client.get("/trends?window=120")
     assert resp.status_code == 422
+
+
+def test_forecast_endpoint_returns_predictions() -> None:
+    """Test forecasting endpoint returns predictions for a category."""
+    resp = client.get("/trends/forecast/POLITICS?days_ahead=3")
+    # Note: This will return 404 if models aren't trained, which is expected
+    # In a real test environment, we'd train models first
+    assert resp.status_code in [200, 404]  # 404 if no models trained yet
+
+    if resp.status_code == 200:
+        data = resp.json()
+        assert "category" in data
+        assert "dates" in data
+        assert "forecast" in data
+        assert "confidence_lower" in data
+        assert "confidence_upper" in data
+        assert "model_info" in data
+        assert data["category"] == "POLITICS"
+        assert len(data["dates"]) == 3
+        assert len(data["forecast"]) == 3

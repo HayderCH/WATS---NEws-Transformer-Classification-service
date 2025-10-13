@@ -18,6 +18,7 @@ datasets==2.19.1
 accelerate>=0.21.0
 torch>=2.6.0
 protobuf>=5,<6
+aiohttp==3.9.3
 packaging>=24.0
 typer==0.12.3
 click==8.1.7
@@ -31,3 +32,17 @@ dvc==3.63.0
 optuna==4.5.0
 bentoml==1.4.25
 evidently==0.7.14
+prophet==1.1.5
+xgboost==2.1.1
+
+# RAG Chatbot Dependencies
+langchain==0.2.16
+langchain-openai==0.1.23
+langchain-community==0.2.16
+chromadb==0.5.5
+faiss-cpu==1.8.0
+openai==1.51.2
+tiktoken==0.7.0
+pypdf==4.3.1
+unstructured==0.15.0
+python-multipart==0.0.9

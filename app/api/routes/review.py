@@ -49,6 +49,9 @@ def enqueue_review(
                 if item.top_labels
                 else None
             ),
+            source=item.source,
+            stream_id=item.stream_id,
+            anomaly_score=item.anomaly_score,
         )
         db.add(rec)
         db.commit()
@@ -66,23 +69,22 @@ def get_review_queue(
     date_to: str | None = None,
     sort_by: str = "id",
     sort_order: str = "asc",
+    source: str | None = None,  # New parameter for filtering by source
     db: Session = Depends(get_db),
 ):
     q = select(ReviewItem).where(ReviewItem.labeled == 0)
     if predicted_label:
         q = q.where(ReviewItem.predicted_label == predicted_label)
+    if source:
+        q = q.where(ReviewItem.source == source)
     try:
         if date_from:
-            q = q.where(
-                ReviewItem.created_at >= datetime.fromisoformat(date_from)
-            )
+            q = q.where(ReviewItem.created_at >= datetime.fromisoformat(date_from))
     except ValueError:
         pass
     try:
         if date_to:
-            q = q.where(
-                ReviewItem.created_at <= datetime.fromisoformat(date_to)
-            )
+            q = q.where(ReviewItem.created_at <= datetime.fromisoformat(date_to))
     except ValueError:
         pass
 
@@ -93,9 +95,7 @@ def get_review_queue(
     if sort_order_normalized not in {"asc", "desc"}:
         sort_order_normalized = "asc"
     order_column = (
-        ReviewItem.created_at
-        if sort_by_normalized == "created_at"
-        else ReviewItem.id
+        ReviewItem.created_at if sort_by_normalized == "created_at" else ReviewItem.id
     )
     if sort_order_normalized == "desc":
         order_column = order_column.desc()
@@ -124,9 +124,7 @@ def get_review_queue(
                 "confidence_score": r.confidence_score,
                 "confidence_margin": r.confidence_margin,
                 "model_version": r.model_version,
-                "created_at": (
-                    r.created_at.isoformat() if r.created_at else None
-                ),
+                "created_at": (r.created_at.isoformat() if r.created_at else None),
                 "top_labels": top_labels,
             }
         )
@@ -141,6 +139,31 @@ def get_review_queue(
         db.commit()
 
     return payload
+
+
+@router.get("/review/stream-queue")
+def get_streaming_review_queue(
+    limit: int = 20,
+    offset: int = 0,
+    predicted_label: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    sort_by: str = "id",
+    sort_order: str = "asc",
+    db: Session = Depends(get_db),
+):
+    """Get review queue specifically for streaming articles"""
+    return get_review_queue(
+        limit=limit,
+        offset=offset,
+        predicted_label=predicted_label,
+        date_from=date_from,
+        date_to=date_to,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        source="streaming",
+        db=db,
+    )
 
 
 @router.post("/review/label")
@@ -160,13 +183,9 @@ def label_review_item(
 
 @router.get("/review/stats")
 def review_stats(db: Session = Depends(get_db)):
-    total = db.execute(
-        select(func.count()).select_from(ReviewItem)
-    ).scalar_one()
+    total = db.execute(select(func.count()).select_from(ReviewItem)).scalar_one()
     unlabeled = db.execute(
-        select(func.count())
-        .select_from(ReviewItem)
-        .where(ReviewItem.labeled == 0)
+        select(func.count()).select_from(ReviewItem).where(ReviewItem.labeled == 0)
     ).scalar_one()
     labeled = total - unlabeled
     # breakdowns
@@ -184,12 +203,27 @@ def review_stats(db: Session = Depends(get_db)):
             .group_by(ReviewItem.true_label)
         ).all()
     )
+    # Source breakdowns
+    by_source_total = dict(
+        db.execute(
+            select(ReviewItem.source, func.count()).group_by(ReviewItem.source)
+        ).all()
+    )
+    by_source_unlabeled = dict(
+        db.execute(
+            select(ReviewItem.source, func.count())
+            .where(ReviewItem.labeled == 0)
+            .group_by(ReviewItem.source)
+        ).all()
+    )
     return {
         "total": int(total),
         "unlabeled": int(unlabeled),
         "labeled": int(labeled),
         "by_predicted_unlabeled": by_predicted,
         "by_true_labeled": by_true,
+        "by_source_total": by_source_total,
+        "by_source_unlabeled": by_source_unlabeled,
     }
 
 
@@ -260,9 +294,7 @@ def export_dataset(
             Feedback.created_at,
         ).where(Feedback.true_label.is_not(None))
         if from_dt:
-            feedback_query = feedback_query.where(
-                Feedback.created_at >= from_dt
-            )
+            feedback_query = feedback_query.where(Feedback.created_at >= from_dt)
         if to_dt:
             feedback_query = feedback_query.where(Feedback.created_at <= to_dt)
         fb_rows = db.execute(feedback_query).all()

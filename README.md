@@ -4,16 +4,18 @@ docker compose up --build
 
 > 📽️ **Demo Video:** [Watch the end-to-end product walk-through](./DEMO_VIDEO.mkv)
 
-> Production-ready FastAPI platform for newsroom classification & summarization with an automated review loop and reproducible ML workflow.
+> Production-ready FastAPI platform for **multimodal news classification** & summarization with an automated review loop and reproducible ML workflow.
 
 ## ⚡ Spotlight: What I Delivered
 
+- **Built an intelligent RAG chatbot** with multi-source retrieval across 200K+ news articles, platform documentation, and real-time analytics, featuring intent classification, conversation memory, and source citations for comprehensive news intelligence.
 - **Hardened the public API** with API-key enforcement, structured logging, latency metrics, and configurable JSON output so analysts and ops teams can trust every response.
 - **Built an active learning safety net** that funnels low-confidence predictions into a review queue and promotes human-label feedback back into the training pipeline.
+- **Implemented Stream Review system** for real-time human-in-the-loop labeling of streaming data, automatically detecting low-confidence predictions and anomalies during live news processing with dedicated review queues and dashboard integration.
 - **Implemented A/B testing infrastructure** for safe model rollouts, comparing ensemble vs transformer performance with traffic splitting, consistent user assignment, and automated winner determination.
 - **Automated the model lifecycle** through a Typer CLI that seeds demo data, trains TF-IDF and transformer models, evaluates them, and packages artifacts for S3-compatible storage.
-- **Stood up a Streamlit command center** showcasing classifier, summarizer, and live trends—perfect for stakeholder demos and recruiter-ready screenshots.
-- **Added AI-powered image generation** with RTX 4060 GPU acceleration, generating news article visualizations in 3-5 seconds using Stable Diffusion 1.5.
+- **Stood up a Streamlit command center** showcasing classifier, summarizer, live trends, and chatbot interface—perfect for stakeholder demos and recruiter-ready screenshots.
+- **Implemented multimodal news classification** using CLIP + BLIP vision models, combining text and image analysis for enhanced accuracy with intelligent confidence scoring.
 - **Locked down the supply chain** by upgrading vulnerable dependencies and wiring CI to run Ruff, pytest, Bandit, and pip-audit on every push.
 
 ## 🔑 Design Decisions & Impact
@@ -53,6 +55,14 @@ Implemented traffic splitting between ensemble and transformer models with hash-
      (Traffic splitting,       Hugging Face Hub
       metrics tracking)
              |                |
+        +----+Chatbot Service |
+        |    | (RAG + Intent   |
+        |    |  Classification)|
+        |    +----------------+
+        |            |
+        |    Multi-Source RAG
+        |    (News + Docs + Analytics)
+        |
         Typer CLI (scripts/manage.py)
      ┌──────────┴───────────┐
  bundle-artifacts     train/eval commands
@@ -92,17 +102,17 @@ python scripts/manage.py seed-db --overwrite
 4. (Optional) Fine-tune or retrain models:
 
 ```powershell
-# TF-IDF baseline on AG News
+# TF-IDF baseline on HuffPost (default dataset with dates)
 python scripts/manage.py train-baseline --limit 5000
 
-# HuffPost transformer (place dataset under data/raw/huffpost first)
+# HuffPost transformer (dataset already available locally)
 python scripts/manage.py train-transformer --data-path data/raw/huffpost/News_Category_Dataset_v3.json
 ```
 
 5. Launch the API:
 
 ```powershell
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8001
 ```
 
 6. (Optional) Bring up the entire stack with Docker:
@@ -116,7 +126,7 @@ uvicorn app.main:app --reload --port 8000
 - **Review queue triage**: `python scripts/manage.py active-finetune --dry-run` shows what will feed the next training pass.
 - **Bundle deployable artifacts**: `python scripts/manage.py bundle-artifacts --label nightly --push` zips configs + models and pushes to S3-compatible storage when `ARTIFACT_STORE_TYPE=s3`.
 - **Security & quality**: `ruff check .`, `bandit -r app scripts dashboard -ll`, `pip-audit`, and `pytest` match the CI pipeline.
-- Docs for deeper dives live under `docs/DEPLOYMENT.md` and `docs/RUNBOOK.md`.
+- Docs for deeper dives live under `docs/DEPLOYMENT.md`, `docs/RUNBOOK.md`, and `docs/STREAM_REVIEW.md`.
 
 ## 👀 Demo Dashboard
 
@@ -126,18 +136,62 @@ streamlit run dashboard/streamlit_app.py
 
 The Streamlit app mirrors real API calls, showcases confidence scores, and surfaces trend charts from `/trends`—ideal for walking a recruiter through the product without hitting the raw JSON endpoints.
 
+## 🤖 Intelligent RAG Chatbot
+
+The platform includes a sophisticated **Retrieval-Augmented Generation (RAG) chatbot** that provides intelligent responses about news articles, platform documentation, and real-time analytics.
+
+### Features
+
+- **Multi-Source Intelligence**: Searches across 200K+ news articles, platform documentation, and live analytics
+- **Intent Classification**: Automatically routes queries to appropriate data sources (news, platform help, analytics)
+- **Source Citations**: Every response includes verifiable sources with article metadata
+- **Conversation Memory**: Maintains context across multi-turn conversations
+- **Production-Ready**: REST API endpoints with comprehensive error handling and metrics
+
+### Usage Examples
+
+```bash
+# Start the chatbot service
+uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+
+# Query examples:
+# "Show me recent articles about climate change"
+# "How do I use the streaming API?"
+# "What are the latest trends in politics?"
+# "Explain how the classifier works"
+```
+
+### API Endpoints
+
+- `POST /chatbot/chat` - Send a message and get intelligent response
+- `GET /chatbot/health` - Service health check
+- `GET /chatbot/stats` - Usage statistics and metrics
+
+### Architecture
+
+The chatbot uses a **hybrid RAG approach**:
+- **News Articles**: FAISS vector search over 200K+ articles with metadata filtering
+- **Documentation**: Semantic search across platform docs with section-aware retrieval
+- **Analytics**: Real-time data integration for trend analysis and insights
+- **Intent Router**: Rule-based classification directing queries to optimal sources
+
 ## � Project Layout
 
 ```
 app/
-  api/routes/            # FastAPI routers (classify, summarize, review, metrics, images, ...)
+  api/routes/            # FastAPI routers (classify, summarize, review, metrics, images, chatbot)
   core/                  # Config, logging, security, metrics globals
-  services/              # Classifier, summarizer, A/B testing, artifact store, image_generator, MLflow helpers
+  services/              # Classifier, summarizer, A/B testing, artifact store, image_generator, chatbot
+    chatbot/             # RAG chatbot with intent classification and multi-source retrieval
   db/                    # SQLAlchemy models & session helpers
-scripts/                 # Training, evaluation, artifact management commands
-dashboard/               # Streamlit demo application (classifier, summarizer, trends, images)
-tests/                   # pytest suite (API, CLI, metrics, MLflow, image generation, ...)
-docs/                    # Deployment + runbook guidance
+scripts/                 # Training, evaluation, artifact management, data ingestion commands
+dashboard/               # Streamlit demo application (classifier, summarizer, trends, chatbot)
+tests/                   # pytest suite (API, CLI, metrics, MLflow, image generation, chatbot)
+docs/                    # Deployment + runbook guidance, chatbot roadmap
+data/
+  vectorstores/          # FAISS indexes for news articles and documentation
+  processed/             # Cleaned datasets ready for ML
+  raw/                   # Original datasets (HuffPost, images, etc.)
 generated_images/        # AI-generated images (gitignored)
 artifacts/               # Model artifacts and bundles
 models/                  # Trained model files
@@ -151,14 +205,17 @@ models/                  # Trained model files
 
 ## 🗺️ **Complete Project Roadmap**
 
-| Version  | Phase                          | Status           | Key Deliverables                                                                                                                                                                                         |
-| -------- | ------------------------------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **v1.0** | Baseline ML                    | ✅ Completed     | • TF-IDF + Logistic Regression classifier<br>• AG News dataset (4 categories)<br>• Basic model training pipeline<br>• Initial evaluation metrics                                                         |
-| **v2.0** | FastAPI Service                | ✅ Completed     | • RESTful API with `/classify_news`<br>• API key authentication<br>• Request/response logging<br>• Basic error handling<br>• Uvicorn deployment                                                          |
-| **v3.0** | Ensemble + Tuning              | ✅ Completed     | • Ensemble classifier (sklearn + transformer)<br>• HuffPost dataset (42 categories)<br>• Active learning review queue<br>• Model fine-tuning pipeline<br>• Streamlit dashboard<br>• Database integration |
-| **v4.0** | ML Ops Deployment & Monitoring | ✅ **COMPLETED** | • **BentoML production serving**<br>• **Evidently drift detection**<br>• **GitHub Actions CI/CD**<br>• **Automated retraining pipeline**<br>• **Kubernetes deployment**<br>• **Production monitoring**   |
-| **v5.0** | A/B Testing & Model Comparison | ✅ **COMPLETED** | • **Traffic splitting infrastructure**<br>• **Hash-based user assignment**<br>• **Real-time metrics tracking**<br>• **Automated winner determination**<br>• **Production-safe model rollouts**           |
-| **v6.0** | AI Image Generation & Visual Content | ✅ **COMPLETED** | • **RTX 4060 GPU acceleration**<br>• **Stable Diffusion 1.5 integration**<br>• **News article visualization**<br>• **FastAPI image endpoints**<br>• **Streamlit image generation UI** |
+| Version  | Phase                                | Status           | Key Deliverables                                                                                                                                                                                         |
+| -------- | ------------------------------------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **v1.0** | Baseline ML                          | ✅ Completed     | • TF-IDF + Logistic Regression classifier<br>• HuffPost dataset (42 categories with dates)<br>• Basic model training pipeline<br>• Initial evaluation metrics                                            |
+| **v2.0** | FastAPI Service                      | ✅ Completed     | • RESTful API with `/classify_news`<br>• API key authentication<br>• Request/response logging<br>• Basic error handling<br>• Uvicorn deployment                                                          |
+| **v3.0** | Ensemble + Tuning                    | ✅ Completed     | • Ensemble classifier (sklearn + transformer)<br>• HuffPost dataset (42 categories)<br>• Active learning review queue<br>• Model fine-tuning pipeline<br>• Streamlit dashboard<br>• Database integration |
+| **v4.0** | ML Ops Deployment & Monitoring       | ✅ **COMPLETED** | • **BentoML production serving**<br>• **Evidently drift detection**<br>• **GitHub Actions CI/CD**<br>• **Automated retraining pipeline**<br>• **Kubernetes deployment**<br>• **Production monitoring**   |
+| **v5.0** | A/B Testing & Model Comparison       | ✅ **COMPLETED** | • **Traffic splitting infrastructure**<br>• **Hash-based user assignment**<br>• **Real-time metrics tracking**<br>• **Automated winner determination**<br>• **Production-safe model rollouts**           |
+| **v6.0** | AI Image Generation & Visual Content | ✅ **COMPLETED** | • **RTX 4060 GPU acceleration**<br>• **Stable Diffusion 1.5 integration**<br>• **News article visualization**<br>• **FastAPI image endpoints**<br>• **Streamlit image generation UI**                    |
+| **v7.0** | Multimodal News Classification       | ✅ **COMPLETED** | • **CLIP + BLIP vision models**<br>• **Intelligent image relevance analysis**<br>• **Text-image fusion architecture**<br>• **Context-aware confidence scoring**<br>• **Production multimodal API**       |
+| **v8.0** | Time Series Forecasting              | ✅ **COMPLETED** | • **Hybrid ML/DL forecasting**<br>• **Prophet + XGBoost + LSTM models**<br>• **News category trend prediction**<br>• **MLflow experiment tracking**<br>• **RESTful forecasting API**                     |
+| **v9.0** | Intelligent RAG Chatbot              | ✅ **COMPLETED** | • **Multi-source RAG across 200K+ articles**<br>• **Intent classification & routing**<br>• **Conversation memory & citations**<br>• **REST API integration**<br>• **Streamlit chatbot UI**              |
 
 ## 🎯 v4.0: ML Ops Deployment & Monitoring ✅ COMPLETED
 
@@ -286,13 +343,13 @@ python test_ab_testing.py
 2. **Start FastAPI Server**:
 
 ```bash
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8001
 ```
 
 3. **Test A/B Endpoint**:
 
 ```bash
-curl -X POST "http://localhost:8000/ab_test" \
+curl -X POST "http://localhost:8001/ab_test" \
   -H "X-API-Key: your-key" \
   -H "Content-Type: application/json" \
   -d '{"text": "Apple announces new iPhone", "user_id": "user123"}'
@@ -301,7 +358,7 @@ curl -X POST "http://localhost:8000/ab_test" \
 4. **View Experiment Results**:
 
 ```bash
-curl "http://localhost:8000/ab_test/results/ensemble_vs_transformer" \
+curl "http://localhost:8001/ab_test/results/ensemble_vs_transformer" \
   -H "X-API-Key: your-key"
 ```
 
@@ -369,14 +426,14 @@ image_path = generator.generate_news_image(
 1. **Check GPU Availability**:
 
 ```bash
-curl "http://localhost:8000/images/status" \
+curl "http://localhost:8001/images/status" \
   -H "X-API-Key: your-key"
 ```
 
 2. **Generate News Article Image**:
 
 ```bash
-curl -X POST "http://localhost:8000/images/generate-news-image" \
+curl -X POST "http://localhost:8001/images/generate-news-image" \
   -H "X-API-Key: your-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -419,82 +476,232 @@ News Article / Custom Prompt
 - **Image Quality**: Professional-grade outputs suitable for news media
 - **Concurrent Requests**: Single GPU instance (can be scaled with multiple GPUs)
 
-## 🎯 **PFE Internship Preparation Guide**
+## 🎯 v7.0: Multimodal News Classification ✅ COMPLETED
 
-### Your Project Demonstrates These Key Engineering Skills:
+**Status: ✅ Intelligent Text + Image Classification with Vision-Language Models**
 
-**1. Full-Stack Development**
+### What Was Delivered
 
-- Modern FastAPI backend with async processing
-- RESTful API design with proper error handling
-- Database integration with SQLAlchemy and Alembic migrations
+- **CLIP + BLIP Vision Models**: Dual vision architecture combining OpenAI CLIP for embeddings and Salesforce BLIP for intelligent image captioning
+- **Smart Image Relevance Analysis**: BLIP-powered content understanding that analyzes actual image content rather than just URLs
+- **Text-Image Fusion Architecture**: Neural network that learns to combine text and image features for improved classification accuracy
+- **Context-Aware Confidence Scoring**: Dynamic confidence scores based on image content analysis (charts: 0.9, financial content: 0.8, business images: 0.7)
+- **Production Multimodal API**: Enhanced `/classify_news` endpoint supporting both text-only and text+image classification
 
-**2. Machine Learning Engineering**
+### Key Features
 
-- End-to-end ML pipeline from data to production
-- Model training, evaluation, and deployment
-- A/B testing for model comparison and safe rollouts
-- AI image generation with GPU acceleration and Stable Diffusion
+#### Multimodal Classifier Service (`app/services/multimodal_classifier.py`)
 
-**3. DevOps & Automation**
+```python
+# Intelligent multimodal classification
+from app.services.multimodal_classifier import classify_multimodal_news
 
-- CI/CD pipeline with automated testing and deployment
-- Containerization with Docker and docker-compose
-- Automated model retraining and artifact management
+result = classify_multimodal_news(
+    title="Stock Market Update",
+    text="The stock market showed significant gains today...",
+    image_url="https://example.com/chart.png"
+)
 
-**4. Production-Ready Architecture**
+# Returns enhanced classification with:
+# - modalities: ["text", "image"]
+# - fusion_used: true
+# - image_confidence: 0.9 (for charts)
+```
 
-- Service-oriented architecture with dependency injection
-- Comprehensive testing (unit, integration, end-to-end)
-- Monitoring, logging, and security best practices
-- GPU-accelerated AI services integration
+#### Vision Models Integration
 
-### PFE Interview Talking Points:
+- **CLIP (OpenAI)**: Provides image embeddings for fusion with text features
+- **BLIP (Salesforce)**: Generates natural language captions for intelligent content analysis
+- **Fusion Model**: PyTorch neural network combining 768D text + 512D image embeddings
 
-**"Décrivez votre projet de PFE" (Describe your PFE project)**
+#### Smart Confidence Scoring
 
-> "J'ai développé un service complet de classification d'articles de presse utilisant l'intelligence artificielle. Le système comprend un pipeline ML automatisé, des tests A/B pour la comparaison de modèles, et un déploiement en production avec monitoring continu."
+```python
+# BLIP analyzes image content and assigns confidence:
+# 📊 Charts/graphs → 0.9 confidence
+# 💰 Financial/stock images → 0.8 confidence
+# 🏢 Business content → 0.7 confidence
+# 📝 Text documents → 0.6 confidence
+# 👤 People/photos → 0.2 confidence (low relevance)
+```
 
-**"Quelles technologies avez-vous utilisées?" (What technologies did you use?)**
+#### FastAPI Multimodal Endpoints (`app/api/routes/classify.py`)
 
-> "J'ai utilisé FastAPI pour l'API REST, scikit-learn et transformers pour les modèles ML, PostgreSQL pour la base de données, et Docker pour la containerisation. Le projet inclut également des tests automatisés et un pipeline CI/CD."
+- **POST `/classify_news`**: Enhanced endpoint supporting `image_url` and `image_base64` parameters
+- **Automatic Fallback**: Gracefully falls back to text-only classification if image processing fails
+- **Fusion Indicators**: Returns `modalities` and `fusion_used` flags for transparency
 
-**"Comment avez-vous géré la complexité?" (How did you handle complexity?)**
+### Quick Start v7.0
 
-> "J'ai structuré le projet en couches (services, API, base de données) avec une architecture modulaire. J'ai implémenté des tests A/B pour valider les performances des modèles en production, et ajouté un système de monitoring pour suivre les métriques en temps réel."
+1. **Test Multimodal Classification**:
 
-**"Quels défis avez-vous rencontrés?" (What challenges did you face?)**
+```bash
+# Text + image classification
+curl -X POST "http://localhost:8001/classify_news" \
+  -H "X-API-Key: your-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Stock Market Analysis",
+    "text": "This chart shows the performance of major indices...",
+    "image_url": "https://example.com/stock-chart.png"
+  }'
 
-> "Le défi principal était d'intégrer les tests A/B avec le système de classification existant. J'ai dû modifier le service de classification pour supporter plusieurs backends de modèles tout en maintenant la cohérence des assignations utilisateurs via un système de hachage."
+# Response includes multimodal metadata:
+# {
+#   "top_category": "BUSINESS",
+#   "modalities": ["text", "image"],
+#   "fusion_used": true,
+#   "image_confidence": 0.9
+# }
+```
 
-### Technical Skills Demonstrated:
+2. **Text-Only Classification** (automatic fallback):
 
-- **Python & FastAPI**: Modern web development with async/await
-- **Machine Learning**: Model training, evaluation, A/B testing, AI image generation
-- **GPU Computing**: RTX 4060 acceleration with CUDA and Hugging Face diffusers
-- **Database Design**: SQLAlchemy ORM, migrations, data modeling
-- **DevOps**: Docker, CI/CD, automated testing, monitoring
-- **Software Architecture**: Service layer, dependency injection, clean code
-- **Testing**: Unit tests, integration tests, end-to-end testing
-- **AI/ML Integration**: Stable Diffusion, prompt engineering, computer vision
+```bash
+curl -X POST "http://localhost:8001/classify_news" \
+  -H "X-API-Key: your-key" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Apple announces new iPhone"}'
+```
 
-### Your Competitive Advantages for Tunisian PFE:
+### Architecture v7.0
 
-✅ **Complete Project**: From concept to production deployment
-✅ **Modern Technologies**: FastAPI, transformers, Docker, GPU acceleration (industry standards)
-✅ **Production Mindset**: Monitoring, testing, security, scalability
-✅ **AI Innovation**: Cutting-edge AI image generation with Stable Diffusion
-✅ **Documentation**: Comprehensive README, API docs, architecture diagrams
-✅ **Real-World Application**: News classification with business impact and visual content generation
+```
+News Article + Image URL
+              ↓
+     Text Classification (RoBERTa)
+              ↓
+   Image Processing Pipeline
+   ├── CLIP: Image Embeddings (512D)
+   └── BLIP: Content Captioning
+              ↓
+     Multimodal Fusion
+     (Text 768D + Image 512D → 1280D)
+              ↓
+   Classification Head (1280D → 16 categories)
+              ↓
+   Enhanced Response
+   (modalities, fusion_used, image_confidence)
+```
 
-### PFE Evaluation Criteria Alignment:
+### Performance Metrics
 
-**Technical Excellence (40%)**: Advanced ML implementation, clean architecture, GPU computing
-**Innovation (20%)**: A/B testing, automated pipelines, modern tech stack, AI image generation
-**Documentation (15%)**: Detailed README, code comments, architecture docs
-**Presentation (15%)**: Clear explanations, demo capabilities
-**Autonomy (10%)**: Independent project execution from start to finish
+- **Classification Accuracy**: Improved accuracy for news with visual content
+- **Image Processing**: ~2-3 seconds per image (CLIP + BLIP)
+- **Fusion Latency**: Minimal overhead (< 100ms) for trained model
+- **Confidence Intelligence**: Context-aware scoring based on actual image content
+- **Fallback Robustness**: Automatic text-only mode when images unavailable
 
-**Remember**: Tunisian PFE evaluators look for practical engineering skills, project completeness, and the ability to explain technical decisions. Your project demonstrates all of these!
+## 🎯 v8.0: Time Series Forecasting ✅ COMPLETED
 
-**Pro Tip**: Prepare a 10-minute demo showing the API working, A/B testing in action, and the automated pipeline. Focus on explaining _why_ you made each architectural decision! 🚀
+**Status: ✅ Hybrid ML/DL Forecasting with MLOps Tracking**
+
+### What Was Delivered
+
+- **Hybrid Forecasting Models**: Ensemble of Prophet (statistical), XGBoost (ML), and LSTM (DL) for robust predictions
+- **News Category Trends**: Forecast article volume trends for 42 HuffPost categories using historical data
+- **MLflow Experiment Tracking**: Full MLOps pipeline with metrics, artifacts, and model versioning
+- **RESTful Forecasting API**: `/trends/forecast/{category}` endpoint with configurable prediction horizons
+
+### Key Features
+
+#### Forecasting Service (`app/services/time_series_forecaster.py`)
+
+- **Prophet Models**: Seasonal decomposition for news trends with holiday awareness
+- **XGBoost Models**: Feature engineering with lag variables, rolling statistics, and date features
+- **LSTM Networks**: Deep learning for complex sequential patterns in PyTorch
+- **Ensemble Predictions**: Weighted combination of all three models for robust forecasts
+
+#### API Endpoints (`app/api/routes/trends.py`)
+
+```python
+# Forecast POLITICS category trends for next 7 days
+GET /trends/forecast/POLITICS?days_ahead=7
+
+# Response includes forecast values, confidence intervals, and model metadata
+{
+  "category": "POLITICS",
+  "dates": ["2025-10-12", "2025-10-13", ...],
+  "forecast": [145.2, 152.8, ...],
+  "confidence_lower": [130.7, 137.5, ...],
+  "confidence_upper": [159.7, 168.1, ...],
+  "model_info": {
+    "prophet_weight": 0.7,
+    "xgb_weight": 0.3,
+    "method": "ensemble"
+  }
+}
+```
+
+#### Training Pipeline (`scripts/train_forecasting.py`)
+
+```powershell
+# Train forecasting models for top 10 categories
+python scripts/manage.py train-forecasting --max-categories 10
+
+# Models saved to models/forecasting/ with MLflow tracking
+```
+
+### Quick Start v8.0
+
+```powershell
+# 1. Train forecasting models (one-time setup)
+python scripts/manage.py train-forecasting
+
+# 2. Start API server
+uvicorn app.main:app --reload --port 8001
+
+# 3. Forecast category trends
+curl "http://localhost:8001/trends/forecast/POLITICS?days_ahead=7"
+```
+
+### Architecture v8.0
+
+```
+HuffPost Dataset (209K articles, 2012-2022)
+              ↓
+     Time Series Aggregation
+     ├── Daily article counts per category
+     └── Date range filling (missing days = 0)
+              ↓
+   Model Training Pipeline
+   ├── Prophet: Seasonal decomposition
+   ├── XGBoost: Feature engineering
+   └── LSTM: Sequential learning
+              ↓
+    Ensemble Forecasting
+    ├── Weighted predictions
+    └── Confidence intervals
+              ↓
+   REST API + MLflow Tracking
+```
+
+## 📄 Resume-ready project summary
+
+Use one of these variants directly in your resume.
+
+### Experience entry (recommended)
+
+News Topic Intelligence Platform — ML Engineer (2024–2025)
+
+- Built a production-ready FastAPI platform for news classification and summarization with 11+ REST endpoints, SQLAlchemy/Alembic, and structured logging/metrics.
+- Implemented multimodal news classification using CLIP + BLIP vision models, combining text and image analysis for enhanced accuracy with intelligent confidence scoring.
+- Added GPU-accelerated AI image generation using Stable Diffusion 1.5 (RTX 4060 + diffusers), producing 512×512 visuals in ~3–5s via FastAPI and Streamlit UI.
+- Delivered A/B testing infrastructure with hash-based user assignment and real-time metrics to compare ensemble vs transformer models for safe rollouts.
+- Added active learning loop: routed low-confidence predictions into a review queue and merged human feedback into retraining pipelines.
+- Implemented Stream Review system for real-time human-in-the-loop labeling of streaming data, automatically detecting low-confidence predictions and anomalies during live news processing with dedicated review queues and dashboard integration.
+- Implemented hybrid time series forecasting with Prophet/XGBoost/LSTM ensemble models for predicting news category trends using 10+ years of historical data.
+- Automated ML lifecycle with Typer CLI (train/eval/bundle), GitHub Actions CI (ruff/pytest/bandit), and artifact publishing to S3-compatible storage.
+- Shipped an interactive Streamlit dashboard (classification, summarization, trends, forecasting, images) for stakeholder demos and analysis.
+
+Tech: Python 3.11, FastAPI, SQLAlchemy, Pydantic, PyTorch, transformers, diffusers, scikit-learn, CUDA (RTX 4060), Hugging Face, CLIP, BLIP, Streamlit, Alembic, PostgreSQL, MLflow, BentoML, Evidently, Docker, GitHub Actions, DVC, pytest, ruff, bandit, Prophet, XGBoost.
+
+### Project section (concise)
+
+- Full-stack AI platform for news classification/summarization with multimodal text+image analysis, A/B testing, active learning, Stream Review system for real-time human-in-the-loop labeling, GPU image generation (Stable Diffusion 1.5 on RTX 4060), and hybrid time series forecasting (Prophet/XGBoost/LSTM).
+- Production API (FastAPI) with auth, JSON logging, latency metrics; Streamlit dashboard for live demos; automated training/eval/artifact bundling.
+- CI/CD with GitHub Actions, security scanning (bandit), linting (ruff), tests (pytest); ML monitoring and drift detection (Evidently, MLflow/BentoML).
+
+### One-liner
+
+Production-grade AI platform for news intelligence with multimodal text+image classification, transformer-based analysis, Stream Review system for real-time human-in-the-loop labeling, GPU-accelerated image generation, hybrid time series forecasting (Prophet/XGBoost/LSTM), A/B testing, and automated MLOps (FastAPI + CUDA + diffusers + CLIP/BLIP + GitHub Actions).

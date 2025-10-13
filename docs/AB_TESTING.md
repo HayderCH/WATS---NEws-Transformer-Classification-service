@@ -70,7 +70,7 @@ else:
 ### Basic A/B Classification
 
 ```bash
-curl -X POST "http://localhost:8000/ab_test" \
+curl -X POST "http://localhost:8001/ab_test" \
   -H "X-API-Key: your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -107,14 +107,14 @@ curl -X POST "http://localhost:8000/ab_test" \
 ### View Experiment Results
 
 ```bash
-curl "http://localhost:8000/ab_test/results/ensemble_vs_transformer" \
+curl "http://localhost:8001/ab_test/results/ensemble_vs_transformer" \
   -H "X-API-Key: your-api-key"
 ```
 
 ### Complete Experiment
 
 ```bash
-curl -X POST "http://localhost:8000/ab_test/complete/ensemble_vs_transformer" \
+curl -X POST "http://localhost:8001/ab_test/complete/ensemble_vs_transformer" \
   -H "X-API-Key: your-api-key"
 ```
 

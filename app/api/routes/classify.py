@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.models.schemas import ClassificationRequest, ClassificationResponse
 from sqlalchemy.exc import SQLAlchemyError
-from app.services.classifier import classify_text
+from app.services.multimodal_classifier import classify_multimodal_news
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.db.models import ReviewItem
@@ -21,8 +21,12 @@ def get_db():
 
 @router.post("/classify_news", response_model=ClassificationResponse)
 def classify(req: ClassificationRequest, db: Session = Depends(get_db)):
-    text = req.text if req.title is None else f"{req.title}. {req.text}"
-    result = classify_text(text)
+    result = classify_multimodal_news(
+        title=req.title,
+        text=req.text,
+        image_url=req.image_url,
+        image_base64=req.image_base64,
+    )
     # Auto-enqueue if below thresholds
     try:
         confidence_score = float(result.get("confidence_score", 1.0))
@@ -32,6 +36,7 @@ def classify(req: ClassificationRequest, db: Session = Depends(get_db)):
             or confidence_margin < _settings.review_margin_threshold
         )
         if needs_review:
+            text = req.text if req.title is None else f"{req.title}. {req.text}"
             rec = ReviewItem(
                 text=text,
                 predicted_label=result.get("top_category", ""),

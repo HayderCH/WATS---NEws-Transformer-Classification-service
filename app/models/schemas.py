@@ -17,6 +17,8 @@ class HealthResponse(BaseModel):
 class ClassificationRequest(BaseModel):
     title: Optional[str] = None
     text: str = Field(..., min_length=10, description="Full article text")
+    image_url: Optional[str] = None
+    image_base64: Optional[str] = None
 
 
 class CategoryProbability(BaseModel):
@@ -32,9 +34,15 @@ class ClassificationResponse(BaseModel):
     confidence_level: str
     confidence_score: float
     confidence_margin: float
-    model_version: str
+    classifier_version: (
+        str  # Renamed from model_version to avoid protected namespace warning
+    )
     latency_ms: float
     suggestion: Optional[str] = None
+    modalities: Optional[List[str]] = None
+    fusion_used: Optional[bool] = None
+    text_confidence: Optional[float] = None
+    image_confidence: Optional[float] = None
 
 
 class SummarizationRequest(BaseModel):
@@ -47,7 +55,9 @@ class SummarizationResponse(BaseModel):
     if ConfigDict is not None:
         model_config = ConfigDict(protected_namespaces=())
     summary: str
-    model_version: str
+    summarizer_version: (
+        str  # Renamed from model_version to avoid protected namespace warning
+    )
     latency_ms: float
     cached: bool | None = False
 
@@ -65,7 +75,9 @@ class SummarizationBatchRequest(BaseModel):
 
 class SummarizationBatchItemResponse(BaseModel):
     summary: str
-    model_version: str
+    summarizer_version: (
+        str  # Renamed from model_version to avoid protected namespace warning
+    )
     latency_ms: float
     cached: bool | None = False
 
@@ -119,6 +131,9 @@ class ReviewEnqueueIn(BaseModel):
     confidence_margin: float
     model_version: Optional[str] = None
     top_labels: Optional[List[CategoryProbability]] = None
+    source: str = "free_classification"  # 'free_classification', 'streaming', 'manual'
+    stream_id: Optional[str] = None  # For streaming articles
+    anomaly_score: Optional[float] = None  # For streaming articles
 
 
 class ReviewQueuedAck(BaseModel):

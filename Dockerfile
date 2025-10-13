@@ -16,6 +16,6 @@ ENV PYTHONPATH=${APP_HOME}
 
 RUN chmod +x docker-entrypoint.sh
 
-EXPOSE 8000
+EXPOSE 8001
 
 ENTRYPOINT ["./docker-entrypoint.sh"]

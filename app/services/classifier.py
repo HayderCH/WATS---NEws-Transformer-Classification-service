@@ -335,7 +335,7 @@ class _ClassifierHolder:
             "confidence_level": confidence_level,
             "confidence_score": float(top_prob),
             "confidence_margin": float(confidence_margin),
-            "model_version": (
+            "classifier_version": (
                 _settings.classifier_version
                 if self.backend != "stub"
                 else f"{_settings.classifier_version}-stub"
@@ -420,7 +420,7 @@ def classify_batch(items: list[dict], top_k: int = 5) -> list[Dict[str, Any]]:
                     "confidence_level": level,
                     "confidence_score": float(top_prob),
                     "confidence_margin": float(margin),
-                    "model_version": _settings.classifier_version,
+                    "classifier_version": _settings.classifier_version,
                     "latency_ms": (time.time() - t_start) * 1000.0,
                     "suggestion": suggestion,
                 }
@@ -492,7 +492,7 @@ def classify_batch(items: list[dict], top_k: int = 5) -> list[Dict[str, Any]]:
                     "confidence_level": level,
                     "confidence_score": float(top_prob),
                     "confidence_margin": float(margin),
-                    "model_version": _settings.classifier_version,
+                    "classifier_version": _settings.classifier_version,
                     "latency_ms": (time.time() - t_start) * 1000.0,
                     "suggestion": suggestion,
                 }
@@ -528,7 +528,7 @@ def classify_batch(items: list[dict], top_k: int = 5) -> list[Dict[str, Any]]:
                     "confidence_level": level,
                     "confidence_score": float(top_prob),
                     "confidence_margin": float(margin),
-                    "model_version": f"{_settings.classifier_version}-stub",
+                    "classifier_version": f"{_settings.classifier_version}-stub",
                     "latency_ms": (time.time() - t_start) * 1000.0,
                     "suggestion": suggestion,
                 }

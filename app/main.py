@@ -12,10 +12,16 @@ from app.api.routes.review import router as review_router
 from app.api.routes.trends import router as trends_router
 from app.api.routes.ab_test import router as ab_test_router
 from app.api.routes.images import router as images_router
+from app.api.routes.streaming import router as streaming_router
+from app.api.routes.chatbot import router as chatbot_router
 from app.core.config import get_settings
+from app.services.classifier import _classifier_holder
 
 settings = get_settings()
 configure_logging()
+
+# Pre-load classifier to ensure it's ready
+_classifier_holder.load()
 
 app = FastAPI(title=settings.app_name)
 app.middleware("http")(logging_middleware)
@@ -32,6 +38,8 @@ app.include_router(review_router)
 app.include_router(trends_router)
 app.include_router(ab_test_router)
 app.include_router(images_router, prefix="/images", tags=["images"])
+app.include_router(streaming_router)
+app.include_router(chatbot_router)
 
 
 @app.get("/")
@@ -50,6 +58,7 @@ def root():
             "/feedback/stats",
             "/review/enqueue",
             "/review/queue",
+            "/review/stream-queue",
             "/review/label",
             "/review/stats",
             "/export/dataset",
@@ -61,5 +70,15 @@ def root():
             "/images/status",
             "/images/generate-image",
             "/images/generate-news-image",
+            "/streaming/start",
+            "/streaming/stop",
+            "/streaming/status",
+            "/streaming/article",
+            "/streaming/health",
+            "/chatbot/chat",
+            "/chatbot/history/{session_id}",
+            "/chatbot/feedback",
+            "/chatbot/stats",
+            "/chatbot/health",
         ],
     }

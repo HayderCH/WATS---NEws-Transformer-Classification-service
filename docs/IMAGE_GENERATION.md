@@ -43,16 +43,19 @@ News Article / Custom Prompt
 ### GPU Setup
 
 1. **Verify GPU Availability**:
+
 ```bash
 python scripts/check_gpu.py
 ```
 
 2. **Install CUDA (if needed)**:
+
    - Download CUDA 11.8 from NVIDIA website
    - Install following NVIDIA instructions
    - Restart system
 
 3. **Test PyTorch CUDA**:
+
 ```bash
 python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
 ```
@@ -71,12 +74,15 @@ python -c "from diffusers import StableDiffusionPipeline; pipe = StableDiffusion
 ### Endpoints
 
 #### Health Check
+
 ```bash
 GET /images/status
 ```
+
 Returns GPU availability and service health.
 
 **Response**:
+
 ```json
 {
   "status": "healthy",
@@ -87,6 +93,7 @@ Returns GPU availability and service health.
 ```
 
 #### Custom Image Generation
+
 ```bash
 POST /images/generate-image
 Content-Type: application/json
@@ -101,6 +108,7 @@ X-API-Key: your-api-key
 ```
 
 **Response**:
+
 ```json
 {
   "image_path": "generated_images/image_20251010_143022.png",
@@ -110,6 +118,7 @@ X-API-Key: your-api-key
 ```
 
 #### News Article Image Generation
+
 ```bash
 POST /images/generate-news-image
 Content-Type: application/json
@@ -123,6 +132,7 @@ X-API-Key: your-api-key
 ```
 
 **Response**:
+
 ```json
 {
   "image_path": "generated_images/news_apple_iphone_20251010_143025.png",
@@ -134,6 +144,7 @@ X-API-Key: your-api-key
 ### Error Handling
 
 **GPU Not Available**:
+
 ```json
 {
   "detail": "GPU not available for image generation",
@@ -142,6 +153,7 @@ X-API-Key: your-api-key
 ```
 
 **Invalid Prompt**:
+
 ```json
 {
   "detail": "Prompt cannot be empty",
@@ -154,11 +166,13 @@ X-API-Key: your-api-key
 ### Images Tab Features
 
 1. **Custom Generation Mode**:
+
    - Free-form prompt input
    - Real-time generation with progress bar
    - Image preview and download
 
 2. **News Article Mode**:
+
    - Title, category, and summary inputs
    - Automatic prompt engineering
    - Context-aware image generation
@@ -213,27 +227,33 @@ st.image(image_path, caption="Generated News Image")
 ### Common Issues
 
 #### CUDA Out of Memory
+
 **Error**: `RuntimeError: CUDA out of memory`
 
 **Solutions**:
+
 1. Reduce image resolution: `width=384, height=384`
 2. Use fewer inference steps: `num_inference_steps=15`
 3. Restart the service to clear GPU memory
 4. Check for other GPU processes
 
 #### Model Download Issues
+
 **Error**: `ConnectionError` during model loading
 
 **Solutions**:
+
 1. Check internet connection
 2. Use VPN if needed (Hugging Face may be blocked)
 3. Pre-download model manually
 4. Use local model cache
 
 #### GPU Not Detected
+
 **Error**: `GPU not available`
 
 **Solutions**:
+
 1. Verify CUDA installation: `nvcc --version`
 2. Check GPU drivers: `nvidia-smi`
 3. Install PyTorch with CUDA: `pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118`
@@ -290,16 +310,19 @@ model_config = {
 ## Security Considerations
 
 ### Input Validation
+
 - Prompt length limits (max 500 characters)
 - Content filtering for inappropriate prompts
 - Rate limiting per API key
 
 ### Output Safety
+
 - Generated images stored securely
 - File path randomization
 - Access control via API keys
 
 ### Resource Protection
+
 - GPU memory monitoring
 - Request queuing for high load
 - Automatic cleanup of old images
@@ -313,7 +336,7 @@ import requests
 
 def generate_news_image(title, category, summary):
     response = requests.post(
-        "http://localhost:8000/images/generate-news-image",
+        "http://localhost:8001/images/generate-news-image",
         json={
             "title": title,
             "category": category,

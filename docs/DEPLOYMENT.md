@@ -24,9 +24,9 @@ All components share the same database (`DB_URL`) and model artifact directory (
 
 - **Base image:** `python:3.11-slim` (multi-stage build recommended for production).
 - **Build stage:** install poetry/pip, compile wheels, download transformer artifacts if baking into the image.
-- **Runtime stage:** non-root user, copy application code + wheels, install only runtime dependencies, expose port `8000`.
-- **Entrypoint:** `uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-4}`.
-- **Healthcheck:** `CMD curl --fail http://localhost:8000/health || exit 1` (add to the Dockerfile when targeting ECS/AKS).
+- **Runtime stage:** non-root user, copy application code + wheels, install only runtime dependencies, expose port `8001`.
+- **Entrypoint:** `uvicorn app.main:app --host 0.0.0.0 --port 8001 --workers ${UVICORN_WORKERS:-4}`.
+- **Healthcheck:** `CMD curl --fail http://localhost:8001/health || exit 1` (add to the Dockerfile when targeting ECS/AKS).
 
 ## 4. Configuration Management
 
@@ -51,7 +51,7 @@ docker compose up --build
 
 - Uses the same `.env` values; mount `data/` and `models/` volumes for persistence.
 - Alembic migrations run automatically on start via the `docker-entrypoint.sh` script.
-- Streamlit defaults to port `8501` and expects the API on `http://api:8000` internally.
+- Streamlit defaults to port `8501` and expects the API on `http://api:8001` internally.
 
 ### 5.2 GitHub Actions → Container Registry → ECS/AKS
 

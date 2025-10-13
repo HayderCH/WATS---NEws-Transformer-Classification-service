@@ -62,7 +62,9 @@ def load_huffpost(limit: int | None = None):
     return texts, labels
 
 
-def train_baseline(output_dir: str, limit: int | None = None, dataset: str = "ag_news"):
+def train_baseline(
+    output_dir: str, limit: int | None = None, dataset: str = "huffpost"
+):
     settings = get_settings()
     tags = {
         "model": "baseline",
@@ -162,7 +164,7 @@ def parse_args():
     )
     ap.add_argument(
         "--dataset",
-        default="ag_news",
+        default="huffpost",
         choices=["ag_news", "huffpost"],
         help="Dataset to train on",
     )

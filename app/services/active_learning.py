@@ -98,9 +98,7 @@ def _collect_examples(
         "latest_label_at": latest,
         "training_threshold": training_threshold,
         "ready_for_training": (
-            bool(total >= training_threshold)
-            if training_threshold
-            else total > 0
+            bool(total >= training_threshold) if training_threshold else total > 0
         ),
     }
     return examples, stats
@@ -118,6 +116,95 @@ def collect_active_learning_examples(
         min_text_length=min_text_length,
         training_threshold=training_threshold,
     )
+
+
+def collect_training_data(
+    session: Session,
+    *,
+    sources: List[str] | None = None,
+    max_confidence: float = 0.9,
+    min_examples: int = 100,
+    include_feedback: bool = True,
+) -> List[Dict[str, str]]:
+    """
+    Collect human-reviewed data for model retraining.
+
+    Args:
+        session: Database session
+        sources: List of sources to include ('free_classification', 'streaming', 'manual')
+        max_confidence: Maximum confidence score to include (focus on uncertain examples)
+        min_examples: Minimum number of examples to collect
+        include_feedback: Whether to include feedback data
+
+    Returns:
+        List of training examples with text and labels
+    """
+    if sources is None:
+        sources = ["free_classification", "streaming"]
+
+    examples: List[Dict[str, str]] = []
+
+    # Collect from ReviewItem table
+    query = select(ReviewItem).where(
+        ReviewItem.labeled == 1,
+        ReviewItem.true_label.isnot(None),
+        ReviewItem.confidence_score <= max_confidence,
+    )
+
+    if sources:
+        query = query.where(ReviewItem.source.in_(sources))
+
+    query = query.order_by(ReviewItem.created_at.desc()).limit(min_examples * 2)
+
+    review_rows = session.execute(query).scalars().all()
+
+    for row in review_rows:
+        content = (row.text or "").strip()
+        if len(content) >= 10:  # Minimum text length
+            examples.append(
+                {
+                    "headline": "",
+                    "short_description": content,
+                    "category": _normalize_label(row.true_label),
+                    "source": row.source,
+                    "confidence": row.confidence_score,
+                    "created_at": (
+                        row.created_at.isoformat() if row.created_at else None
+                    ),
+                }
+            )
+
+    # Optionally include feedback data
+    if include_feedback and len(examples) < min_examples:
+        feedback_rows = (
+            session.execute(
+                select(Feedback)
+                .where(Feedback.true_label.isnot(None))
+                .order_by(Feedback.created_at.desc())
+                .limit(min_examples - len(examples))
+            )
+            .scalars()
+            .all()
+        )
+
+        for row in feedback_rows:
+            content = (row.text or "").strip()
+            if len(content) >= 10:
+                examples.append(
+                    {
+                        "headline": "",
+                        "short_description": content,
+                        "category": _normalize_label(row.true_label),
+                        "source": "feedback",
+                        "confidence": row.confidence_score or 0.0,
+                        "created_at": (
+                            row.created_at.isoformat() if row.created_at else None
+                        ),
+                    }
+                )
+
+    # Limit to min_examples
+    return examples[:min_examples]
 
 
 def active_learning_stats(

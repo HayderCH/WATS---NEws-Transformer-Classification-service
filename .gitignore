@@ -94,6 +94,23 @@ generated_images/
 *.svg
 *.ico
 
+# Vector stores and embeddings (large binary files)
+data/vectorstores/
+data/images/embeddings/
+*.faiss
+*.pkl
+*.index
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Large data files
+data/processed/
+data/raw/
+!data/raw/huffpost/*.dvc
+
 # OS metadata
 .DS_Store
 Thumbs.db
